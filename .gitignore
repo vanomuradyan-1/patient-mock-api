@@ -1,0 +1,12 @@
+# Ignore local sqlite database
+database.db
+database.db-shm
+database.db-wal
+
+# Node modules
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
