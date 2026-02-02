@@ -3,12 +3,14 @@ const sqlite3 = require("sqlite3").verbose();
 const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require('crypto');
+const cors = require("cors");
 
 const app = express();
 const PORT = 5178;
 
 // middleware
 app.use(express.json());
+app.use(cors('*'));
 
 // method-override support for clients that can't send PATCH/PUT/DELETE
 app.use((req, res, next) => {
