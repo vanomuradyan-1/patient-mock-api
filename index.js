@@ -13,6 +13,7 @@ const PORT = 5178;
 // middleware
 app.use(express.json());
 app.use(cors('*'));
+app.use(express.static('public'));
 
 // method-override support for clients that can't send PATCH/PUT/DELETE
 app.use((req, res, next) => {
@@ -103,8 +104,117 @@ const swaggerOptions = {
 };
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
 
-// ------------------- PATIENTS API (/api/v1/patients) -------------------
+// Admin page route (root)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// ------------------- API BASE -------------------
 const API_BASE = '/api/v1';
+
+// ------------------- ADMIN UTILITIES -------------------
+
+// DELETE - Clear all patients
+app.delete(`${API_BASE}/admin/clear`, (req, res) => {
+    db.run('DELETE FROM patients', [], function (err) {
+        if (err) return handleError(res, 500, err.message || 'DB error');
+        res.json({
+            success: true,
+            deletedCount: this.changes,
+            message: `Deleted ${this.changes} patient(s)`
+        });
+    });
+});
+
+// POST - Generate mock patients
+app.post(`${API_BASE}/admin/generate`, (req, res) => {
+    const count = parseInt(req.body.count) || 10;
+
+    if (count < 1 || count > 1000) {
+        return handleError(res, 400, 'Count must be between 1 and 1000');
+    }
+
+    const firstNames = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emily', 'Robert', 'Lisa', 'James', 'Mary', 'William', 'Patricia', 'Richard', 'Jennifer', 'Thomas', 'Linda'];
+    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas'];
+    const teams = ['Red Team', 'Blue Team', 'Green Team', 'Yellow Team', 'Purple Team'];
+    const agencies = [
+        { name: 'HealthCare Plus', id: 'A100' },
+        { name: 'MediCare Services', id: 'A200' },
+        { name: 'Wellness Group', id: 'A300' }
+    ];
+    const statuses = ['ACTIVE', 'DISCHARGED', 'PENDING'];
+    const insuranceProviders = ['Blue Cross', 'Aetna', 'Cigna', 'UnitedHealth', 'Humana'];
+
+    const randomDate = (start, end) => {
+        return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())).toISOString().split('T')[0];
+    };
+
+    const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    let generated = 0;
+    const createdAt = new Date().toISOString();
+
+    const insertPatient = (i) => {
+        if (i >= count) {
+            return res.json({
+                success: true,
+                generatedCount: generated,
+                message: `Generated ${generated} patient(s)`
+            });
+        }
+
+        const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : randomUUID();
+        const firstName = randomItem(firstNames);
+        const lastName = randomItem(lastNames);
+        const dob = randomDate(new Date(1940, 0, 1), new Date(2010, 0, 1));
+        const team = { name: randomItem(teams) };
+        const agency = randomItem(agencies);
+        const insurance = {
+            providerName: randomItem(insuranceProviders),
+            policyNumber: Math.random().toString(36).substring(2, 8).toUpperCase(),
+            groupNumber: 'GRP' + Math.floor(Math.random() * 1000)
+        };
+        const lastOrder = {
+            id: 'ORD-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+            date: randomDate(new Date(2023, 0, 1), new Date()),
+            status: randomItem(['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'])
+        };
+        const status = randomItem(statuses);
+        const isPinned = Math.random() > 0.8 ? 1 : 0;
+        const metadata = {
+            createdAt,
+            createdBy: 'admin-generator',
+            updatedAt: createdAt,
+            updatedBy: 'admin-generator'
+        };
+
+        const sql = `INSERT INTO patients (id,firstName,lastName,dateOfBirth,email,insurance,status,isPinned,metadata,team,agency,lastOrder) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
+        const params = [
+            id,
+            firstName,
+            lastName,
+            dob,
+            `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
+            JSON.stringify(insurance),
+            status,
+            isPinned,
+            JSON.stringify(metadata),
+            JSON.stringify(team),
+            JSON.stringify(agency),
+            JSON.stringify(lastOrder)
+        ];
+
+        db.run(sql, params, function (err) {
+            if (!err) generated++;
+            insertPatient(i + 1);
+        });
+    };
+
+    insertPatient(0);
+});
+
+// ------------------- PATIENTS API (/api/v1/patients) -------------------
+
 
 // create patients table (JSON columns for nested objects)
 db.run(`
