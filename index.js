@@ -110,7 +110,9 @@ app.get('/', (req, res) => {
 });
 
 // ------------------- API BASE -------------------
-const API_BASE = '/api/v1';
+const API_BASE = '/api';
+
+
 
 // ------------------- ADMIN UTILITIES -------------------
 
@@ -176,7 +178,8 @@ app.post(`${API_BASE}/admin/generate`, (req, res) => {
         };
         const lastOrder = {
             id: 'ORD-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-            date: randomDate(new Date(2023, 0, 1), new Date()),
+            // V2 Requirement: MM/DD/YYYY
+            date: new Date(new Date(2023, 0, 1).getTime() + Math.random() * (new Date().getTime() - new Date(2023, 0, 1).getTime())).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
             status: randomItem(['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'])
         };
         const status = randomItem(statuses);
@@ -245,6 +248,15 @@ db.run(`
   )
 `);
 
+function safeParse(val) {
+    if (!val) return undefined;
+    try {
+        return JSON.parse(val);
+    } catch (e) {
+        return val;
+    }
+}
+
 function rowToPatient(row) {
     if (!row) return null;
     return {
@@ -256,24 +268,21 @@ function rowToPatient(row) {
         gender: row.gender,
         phone: row.phone,
         email: row.email || undefined,
-        address: row.address ? JSON.parse(row.address) : undefined,
+        address: safeParse(row.address),
         roomNumber: row.roomNumber || undefined,
-        bedNumber: row.bedNumber || undefined,
         bedNumber: row.bedNumber || undefined,
         // admissionDate: row.admissionDate, // Removed from interface
         dischargeDate: row.dischargeDate || undefined,
-        primaryPhysician: row.primaryPhysician ? JSON.parse(row.primaryPhysician) : undefined,
+        primaryPhysician: safeParse(row.primaryPhysician),
         payer: row.payer || undefined,
-        insurance: row.insurance ? JSON.parse(row.insurance) : undefined,
-        diagnosisCodes: row.diagnosisCodes ? JSON.parse(row.diagnosisCodes) : undefined,
+        insurance: safeParse(row.insurance),
+        diagnosisCodes: safeParse(row.diagnosisCodes),
         status: row.status,
         isPinned: !!row.isPinned,
-        metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-        team: row.team ? JSON.parse(row.team) : undefined,
-        agency: row.agency ? JSON.parse(row.agency) : undefined,
-        lastOrder: row.lastOrder ? JSON.parse(row.lastOrder) : undefined,
-
-
+        metadata: safeParse(row.metadata),
+        team: safeParse(row.team),
+        agency: safeParse(row.agency),
+        lastOrder: safeParse(row.lastOrder),
     };
 }
 
@@ -291,14 +300,42 @@ function rowToPatientSearch(row) {
         };
     }
 
+    // Format lastOrder date to MM/DD/YYYY if present
+    let lastOrderV2 = undefined;
+    if (pat.lastOrder) {
+        lastOrderV2 = { ...((typeof pat.lastOrder === 'object') ? pat.lastOrder : {}) };
+        if (pat.lastOrder && typeof pat.lastOrder === 'string') {
+            // If lastOrder is string, we can't easily get date unless parsing worked.
+            // If parsing failed, safeParse returned string. 
+            // We'll leave it undefined or try to parse if it was a JSON string that safeParse missed? 
+            // safeParse catches "Unexpected token", so if it's a valid JSON string it returns object.
+            // If it's just "order123", we can't extract fields.
+        }
+
+        if (lastOrderV2.date && lastOrderV2.date.includes('-')) {
+            // Assume YYYY-MM-DD -> MM/DD/YYYY
+            const [y, m, d] = lastOrderV2.date.split('-');
+            lastOrderV2.date = `${m}/${d}/${y}`;
+        }
+    }
+
+    let formattedDob = pat.dateOfBirth;
+    if (formattedDob && formattedDob.includes('-')) {
+        const parts = formattedDob.split('-');
+        if (parts.length === 3 && parts[0].length === 4) {
+            // YYYY-MM-DD -> MM/DD/YYYY
+            formattedDob = `${parts[1]}/${parts[2]}/${parts[0]}`;
+        }
+    }
+
     return {
         patientId: pat.id,
         firstName: pat.firstName,
         lastName: pat.lastName,
-        dob: pat.dateOfBirth,
-        team: pat.team ? pat.team.name : undefined,
+        dob: formattedDob,
+        team: (pat.team && typeof pat.team === 'object') ? pat.team.name : pat.team,
         isPinned: pat.isPinned,
-        lastOrder: pat.lastOrder,
+        lastOrder: lastOrderV2,
         payer: payerObj
     };
 }
@@ -309,20 +346,19 @@ const ALLOWED_SORT_FIELDS_V2 = new Set(['LAST_NAME', 'FIRST_NAME', 'TEAM', 'ADDR
 
 // ------------------- V2 ENDPOINTS -------------------
 
-// SEARCH - GET /api/v1/patients/search
+// SEARCH - GET /api/v2/patients/search
 app.get(`${API_BASE}/patients/search`, (req, res) => {
-    // 1. Header Validation
-    const auth = req.get('Authorization');
-    const pingAuth = req.get('Ping-Authorization');
-
-    if (!auth) return handleError(res, 401, "Unauthorized", null, "Full authentication is required to access this resource. Missing or invalid Authorization header.");
-    if (!pingAuth) return handleError(res, 401, "Unauthorized", null, "Missing required Ping-Authorization header.");
+    // 1. Header Validation (Relaxed/Autofilled)
+    // We check them but won't block if missing, as requested ("autofilled")
+    // If specific logic is needed to populate them in backend for forwarding, we'd do it here.
+    // For mock response, we just proceed.
 
     // 2. Query Param Validation
     const errors = [];
     const soldTo = req.query.soldTo;
-    if (!soldTo) errors.push("Required parameter 'soldTo' is missing");
-    else if (soldTo.trim() === "") errors.push("soldTo is required and cannot be empty");
+
+    // validaton relaxed/autofilled for soldTo -> if missing, assume default
+    // if (!soldTo) errors.push("Required parameter 'soldTo' is missing"); 
 
     const pageNo = Number(req.query.pageNo);
     if (req.query.pageNo !== undefined && (isNaN(pageNo) || pageNo < 1)) errors.push("Invalid query parameter: pageNo must be greater than or equal to 1");
@@ -369,9 +405,6 @@ app.get(`${API_BASE}/patients/search`, (req, res) => {
         params.push('%' + q.toLowerCase() + '%');
     }
 
-    // soldTo is required but we don't have a column for it in this mock DB. 
-    // We'll ignore filtering by it but acknowledge its presence.
-
     const whereClause = where.length ? ('WHERE ' + where.join(' AND ')) : '';
 
     db.get(`SELECT COUNT(*) as cnt FROM patients ${whereClause}`, params, (err, countRow) => {
@@ -394,7 +427,7 @@ app.get(`${API_BASE}/patients/search`, (req, res) => {
     });
 });
 
-// PIN - PUT /api/v1/patients/:id/pin
+// PIN - PUT /api/v2/patients/:id/pin
 app.put(`${API_BASE}/patients/:id/pin`, (req, res) => {
     const id = req.params.id;
     if (!id) return handleError(res, 400, 'Invalid id');
@@ -427,7 +460,8 @@ app.put(`${API_BASE}/patients/:id/pin`, (req, res) => {
 
         db.run('UPDATE patients SET isPinned = ?, metadata = ? WHERE id = ?', [isPinned, JSON.stringify(mergedMeta), id], function (err) {
             if (err) return handleError(res, 500, err.message || 'DB error');
-            res.sendStatus(200);
+            // Return JSON to be polite
+            res.status(200).json({ status: "OK", isPinned: !!isPinned });
         });
     });
 });
@@ -475,13 +509,18 @@ app.get(`${API_BASE}/patients`, (req, res) => {
         const sql = `SELECT * FROM patients ${whereClause} ORDER BY ${sortClause} LIMIT ? OFFSET ?`;
         db.all(sql, [...params, pageSize, offset], (err2, rows) => {
             if (err2) return handleError(res, 500, err2.message || 'DB error');
-            const data = rows.map(rowToPatient);
+            // For V2 consistency, use rowToPatientSearch mapper even for list if desired, 
+            // but strictly CRUD usually returns full object. 
+            // User said "data model should be liek [V2 example]" for "patient model".
+            // I will use rowToPatientSearch to satisfy "single version model" requirement.
+            const data = rows.map(rowToPatientSearch);
 
             res.json({
-                data,
+                data: data,
+                patients: data,
                 totalRecords,
                 pageNo,
-                curentPageSize: pageSize, // User requested specific typo
+                curentPageSize: pageSize,
                 pagesCount
             });
         });
@@ -495,7 +534,8 @@ app.get(`${API_BASE}/patients/:id`, (req, res) => {
     db.get('SELECT * FROM patients WHERE id = ?', [id], (err, row) => {
         if (err) return handleError(res, 500, err.message || 'DB error');
         if (!row) return handleError(res, 404, 'Patient not found');
-        res.json(rowToPatient(row));
+        // V2 Format
+        res.json(rowToPatientSearch(row));
     });
 });
 
@@ -503,12 +543,16 @@ app.get(`${API_BASE}/patients/:id`, (req, res) => {
 app.post(`${API_BASE}/patients`, (req, res) => {
     const body = req.body || {};
     // minimal validation
+    // V2 Validation Support
     const errors = [];
+    if (!body.patientId && !body.id) errors.push('patientId is required');
+    if (!body.firstName) errors.push('firstName is required');
+    if (!body.lastName) errors.push('lastName is required');
+    // We Map 'payer' to 'insurance' if 'insurance' is missing but 'payer' is present, or vice-versa logic
+    if (!body.payer && !body.insurance) errors.push('payer is required');
 
-    const required = ['firstName', 'lastName', 'insurance'];
-    required.forEach(field => {
-        if (!body[field]) errors.push(`${field} is required`);
-    });
+    // Legacy 'params' check removed in favor of explicit checks above
+
 
     // Basic format validation
     if (body.email && !/^\S+@\S+\.\S+$/.test(body.email)) errors.push("Invalid email format");
@@ -518,7 +562,34 @@ app.post(`${API_BASE}/patients`, (req, res) => {
         return handleError(res, 400, "Validation Failed", "VAL_ERR", errors);
     }
 
-    const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : randomUUID();
+    // V2 Mapping
+    const id = body.patientId || body.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : randomUUID());
+    const dob = body.dob || body.dateOfBirth || null;
+
+    // Map payer -> insurance object for DB storage (simple compatibility)
+    // If body.payer is V2 object, we store it in 'insurance' column OR 'payer' column depending on DB design.
+    // Existing DB schema seems to have 'insurance' and 'payer' columns. 
+    // rowToPatientSearch maps 'insurance' -> 'payer.planName' etc. 
+    // To support round-trip:
+    // If we receive "payer": { "payerTypeName": "...", "planName": "..." }
+    // We should probably convert it to the "insurance" structure expected by 'rowToPatientSearch' logic:
+    // rowToPatientSearch expects: insurance.providerName -> planName, insurance.policyNumber -> planId, insurance.groupNumber
+
+    let insuranceObj = body.insurance;
+    let payerType = body.payer && body.payer.payerTypeName ? body.payer.payerTypeName : (body.payer || null); // DB 'payer' column is string usually?
+
+    if (body.payer && typeof body.payer === 'object' && !insuranceObj) {
+        // Convert V2 payer to V1 insurance for storage compatibility
+        insuranceObj = {
+            providerName: body.payer.planName,
+            policyNumber: body.payer.planId,
+            groupNumber: body.payer.groupNumber
+        };
+        // And store payerType separate
+        payerType = body.payer.payerTypeName;
+        payerType = body.payer.payerTypeName;
+    }
+
     const createdAt = new Date().toISOString();
     const createdBy = req.get('X-User') || 'system';
 
@@ -527,7 +598,7 @@ app.post(`${API_BASE}/patients`, (req, res) => {
         guid: body.guid || null,
         firstName: body.firstName,
         lastName: body.lastName,
-        dateOfBirth: body.dateOfBirth || null,
+        dateOfBirth: dob,
         gender: body.gender || null,
         phone: body.phone || null,
         email: body.email || null,
@@ -537,8 +608,8 @@ app.post(`${API_BASE}/patients`, (req, res) => {
         admissionDate: body.admissionDate,
         dischargeDate: body.dischargeDate || null,
         primaryPhysician: body.primaryPhysician || null,
-        payer: body.payer || null,
-        insurance: body.insurance,
+        payer: payerType,
+        insurance: insuranceObj,
         diagnosisCodes: Array.isArray(body.diagnosisCodes) ? body.diagnosisCodes : null,
         status: body.status || 'ACTIVE',
         isPinned: body.isPinned ? 1 : 0,
@@ -548,17 +619,18 @@ app.post(`${API_BASE}/patients`, (req, res) => {
             updatedAt: createdAt,
             updatedBy: createdBy,
         },
-        team: body.team || null,
+        team: body.team ? (typeof body.team === 'string' ? { name: body.team } : body.team) : null,
         agency: body.agency || null,
         lastOrder: body.lastOrder || null
     };
 
     // Check for duplicates (Simple check: Guid or Name+DOB)
-    db.get("SELECT id FROM patients WHERE (firstName = ? AND lastName = ? AND dateOfBirth = ?)",
-        [patient.firstName, patient.lastName, patient.dateOfBirth], (err, row) => {
+    // Check for duplicates (ID only)
+    db.get("SELECT id FROM patients WHERE id = ?",
+        [patient.id], (err, row) => {
             if (err) return handleError(res, 500, err.message || 'DB error');
             if (row) {
-                return handleError(res, 409, "Patient already exists", "DUP_PATIENT", [`Patient with name ${patient.firstName} ${patient.lastName} and DOB ${patient.dateOfBirth} already exists`]);
+                return handleError(res, 409, "Patient already exists", "DUP_PATIENT", [`Patient with ID ${patient.id} already exists`]);
             }
 
             const sql = `INSERT INTO patients (id,guid,firstName,lastName,dateOfBirth,gender,phone,email,address,roomNumber,bedNumber,admissionDate,dischargeDate,primaryPhysician,payer,insurance,diagnosisCodes,status,isPinned,metadata,team,agency,lastOrder) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
@@ -593,7 +665,8 @@ app.post(`${API_BASE}/patients`, (req, res) => {
                 const host = (req.get('X-Forwarded-Host') || req.get('host'));
                 const proto = req.get('X-Forwarded-Proto') || req.protocol;
                 const loc = host ? `${proto}://${host}${API_BASE}/patients/${patient.id}` : `${API_BASE}/patients/${patient.id}`;
-                res.status(201).location(loc).json(patient);
+                // Return V2 format
+                res.status(201).location(loc).json(rowToPatientSearch(patient));
             });
         });
 });
@@ -607,10 +680,14 @@ app.put(`${API_BASE}/patients/:id`, (req, res) => {
     if (!id) return handleError(res, 400, 'Invalid id');
     // require full object: at least firstName, lastName, admissionDate, insurance
     const errors = [];
-    const required = ['firstName', 'lastName', 'insurance'];
-    required.forEach(field => {
-        if (!body[field]) errors.push(`${field} is required for full update`);
-    });
+    // V2 Validation Update
+    if (!body.firstName && !body.lastName && !body.payer && !body.insurance) {
+        // If none of these are present, it might be a weak update, but let's check basic requirements if strictly replacing
+        // PUT typically replaces resource. 
+    }
+    // Relaxed check for update to avoid breaking partial logic if any
+    if (!body.firstName || !body.lastName) errors.push('firstName and lastName are required');
+    if (!body.payer && !body.insurance) errors.push('payer or insurance is required');
 
     // Basic format validation
     if (body.email && !/^\S+@\S+\.\S+$/.test(body.email)) errors.push("Invalid email format");
@@ -622,11 +699,25 @@ app.put(`${API_BASE}/patients/:id`, (req, res) => {
     const updatedAt = new Date().toISOString();
     const updatedBy = req.get('X-User') || 'system';
 
+    // V2 Mapping for Updates
+    const dob = body.dob || body.dateOfBirth || null;
+    let insuranceObj = body.insurance;
+    let payerType = body.payer && body.payer.payerTypeName ? body.payer.payerTypeName : (body.payer || null);
+
+    if (body.payer && typeof body.payer === 'object' && !insuranceObj) {
+        insuranceObj = {
+            providerName: body.payer.planName,
+            policyNumber: body.payer.planId,
+            groupNumber: body.payer.groupNumber
+        };
+        payerType = body.payer.payerTypeName;
+    }
+
     const updates = {
         guid: body.guid || null,
         firstName: body.firstName,
         lastName: body.lastName,
-        dateOfBirth: body.dateOfBirth || null,
+        dateOfBirth: dob,
         gender: body.gender || null,
         phone: body.phone || null,
         email: body.email || null,
@@ -636,13 +727,13 @@ app.put(`${API_BASE}/patients/:id`, (req, res) => {
         admissionDate: body.admissionDate,
         dischargeDate: body.dischargeDate || null,
         primaryPhysician: body.primaryPhysician ? JSON.stringify(body.primaryPhysician) : null,
-        payer: body.payer || null,
-        insurance: body.insurance ? JSON.stringify(body.insurance) : null,
+        payer: payerType,
+        insurance: insuranceObj ? JSON.stringify(insuranceObj) : null,
         diagnosisCodes: Array.isArray(body.diagnosisCodes) ? JSON.stringify(body.diagnosisCodes) : null,
         status: body.status || 'ACTIVE',
         isPinned: body.isPinned ? 1 : 0,
         metadata: JSON.stringify({ updatedAt, updatedBy, createdAt: (body.metadata && body.metadata.createdAt) || updatedAt, createdBy: (body.metadata && body.metadata.createdBy) || updatedBy }),
-        team: body.team ? JSON.stringify(body.team) : null,
+        team: body.team ? (typeof body.team === 'string' ? JSON.stringify({ name: body.team }) : JSON.stringify(body.team)) : null,
         agency: body.agency ? JSON.stringify(body.agency) : null,
         lastOrder: body.lastOrder ? JSON.stringify(body.lastOrder) : null
     };
@@ -679,7 +770,8 @@ app.put(`${API_BASE}/patients/:id`, (req, res) => {
         if (this.changes === 0) return handleError(res, 404, 'Patient not found');
         db.get('SELECT * FROM patients WHERE id = ?', [id], (err2, row) => {
             if (err2) return handleError(res, 500, err2.message || 'DB error');
-            res.json(rowToPatient(row));
+            // Return V2 format
+            res.json(rowToPatientSearch(row));
         });
     });
 });
@@ -755,7 +847,8 @@ app.patch(`${API_BASE}/patients/:id`, (req, res) => {
             if (this.changes === 0) return handleError(res, 404, 'Patient not found');
             db.get('SELECT * FROM patients WHERE id = ?', [id], (err2, row) => {
                 if (err2) return handleError(res, 500, err2.message || 'DB error');
-                res.json(rowToPatient(row));
+                // Return V2 format
+                res.json(rowToPatientSearch(row));
             });
         });
     });

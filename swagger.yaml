@@ -1,238 +1,133 @@
 openapi: 3.0.0
+x-stoplight:
+  id: ck02vd3fmtbpo
 info:
-  title: PatientManagement Mock API
-  version: v2
-  description: Mock API for managing patient information, including creating, updating, pinning, and searching.
+  title: PatientManagement API
+  version: v1
+  description: This API provides endpoints to manage Patient information.
   contact:
-    name: Mock API Team
+    name: Jupiter Squad
+    email: EcomJupiterSquad@medline.com
 servers:
-  - url: 'http://localhost:5178/api/v1'
-    description: Local Mock Server
+  - url: 'http://localhost:5178/api'
+    description: Local Dev Environment
+  - url: 'https://devapic.medline.com/ecom/patient'
+    description: Dev Environment
+  - url: 'https://testapic.medline.com/ecom/patient'
+    description: Test Environment
+  - url: 'https://apic.medline.com/ecom/patient'
+    description: Production Environment
 tags:
-  - name: PatientManagement
-    description: CRUD operations for patients
   - name: PatientSearch
-    description: Advanced search and retrieval
+    description: Search and retrieve patient information.
+  - name: PatientManagement
+    description: CRUD operations.
 paths:
-  /patients:
-    get:
-      summary: List Patients (V1)
-      tags: [PatientManagement]
-      description: Retrieve a paginated list of patients with basic filtering.
-      parameters:
-        - in: query
-          name: q
-          schema:
-            type: string
-          description: Search query (Name, Email, ID)
-        - in: query
-          name: pageNo
-          schema:
-            type: integer
-            default: 1
-          description: Page number
-        - in: query
-          name: pageSize
-          schema:
-            type: integer
-            default: 25
-          description: Items per page
-        - in: query
-          name: sortBy
-          schema:
-            type: string
-            default: firstName
-          description: Field to sort by
-        - in: query
-          name: sortMethod
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: asc
-          description: Sort direction
-        - in: query
-          name: isPinned
-          schema:
-            type: boolean
-          description: Filter by pinned status
-        - in: query
-          name: status
-          schema:
-            type: string
-          description: Filter by status
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientListResponse'
-    post:
-      summary: Create Patient
-      tags: [PatientManagement]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatientDisplay'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientDisplay'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/Conflict'
-
-  /patients/{id}:
-    get:
-      summary: Get Patient by ID
-      tags: [PatientManagement]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Patient found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientDisplay'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    put:
-      summary: Update Patient (Full)
-      tags: [PatientManagement]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatientDisplay'
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientDisplay'
-    patch:
-      summary: Update Patient (Partial)
-      tags: [PatientManagement]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                isPinned:
-                  type: boolean
-                status:
-                  type: string
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientDisplay'
-    delete:
-      summary: Delete Patient
-      tags: [PatientManagement]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '204':
-          description: Deleted
-
   /patients/search:
     get:
-      summary: Search Patients (V2)
-      tags: [PatientSearch]
-      description: Advanced search with auth headers and specific response format.
+      summary: Search Patients with Enhanced Filters
+      tags:
+        - PatientSearch
+      operationId: search-patients-v2
+      description: Search and retrieve patients with pagination, filtering, and sorting capabilities. Returns patient information including demographics, team, insurance, and order details.
+      x-internal: true
       parameters:
         - in: header
           name: Authorization
-          required: true
+          description: JWT authentication token
           schema:
             type: string
-            default: "Bearer test"
+            example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          required: true
         - in: header
           name: Ping-Authorization
-          required: true
+          description: 'Ping authentication token for internal consumers'
           schema:
             type: string
-            default: "ping"
-        - in: query
+            example: ping-token-value
+          required: true
+        - schema:
+            type: string
+            example: "100840"
+            minLength: 1
+          in: query
           name: soldTo
+          description: Sold-to account number
           required: true
-          schema:
+        - schema:
             type: string
-        - in: query
+            # example: "abc"
+          in: query
           name: q
-          schema:
-            type: string
-        - in: query
-          name: pageNo
-          schema:
+          description: Search query to filter patients by name, ID, or other attributes
+          required: false
+        - schema:
             type: integer
             default: 1
-        - in: query
-          name: pageSize
-          schema:
+            example: 1
+            minimum: 1
+          in: query
+          name: pageNo
+          description: Page number for pagination (1-based indexing)
+          required: false
+        - schema:
             type: integer
             default: 25
-        - in: query
+            example: 25
+            minimum: 1
+            maximum: 100
+          in: query
+          name: pageSize
+          description: Number of records per page
+          required: false
+        - schema:
+            type: string
+            enum:
+              - LAST_NAME
+              - FIRST_NAME
+              - TEAM
+              - ADDRESS
+              - PATIENT_ID
+            # example: FIRST_NAME
+          in: query
           name: sortBy
-          schema:
+          description: Field name to sort results by
+          required: false
+        - schema:
             type: string
-            enum: [LAST_NAME, FIRST_NAME, TEAM, ADDRESS, PATIENT_ID]
-        - in: query
+            enum:
+              - ASC
+              - DESC
+            # example: ASC
+            # default: ASC
+          in: query
           name: sortMethod
-          schema:
-            type: string
-            enum: [ASC, DESC]
-      security:
-        - jwtTokenAuth: []
-        - PingTokenAuth: []
+          description: Sort order direction
+          required: false
       responses:
         '200':
-          description: Search results
+          description: Patients retrieved successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatientSearchResponse'
+        '400':
+          $ref: '#/components/responses/badRequest'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/unAuthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/notFound'
+        '500':
+          $ref: '#/components/responses/internalServerError'
 
   /patients/{id}/pin:
     put:
-      summary: Pin/Unpin Patient
-      tags: [PatientSearch]
+      summary: Pin or Unpin a Patient
+      tags:
+        - PatientSearch
+      operationId: pin-patient
       parameters:
         - in: path
           name: id
@@ -251,123 +146,252 @@ paths:
                   type: boolean
       responses:
         '200':
-          description: Status updated
+          description: Status updated successfully
+        '400':
+          $ref: '#/components/responses/badRequest'
+        '404':
+          $ref: '#/components/responses/notFound'
+        '500':
+          $ref: '#/components/responses/internalServerError'
+
+  # CRUD Operations
+  /patients:
+    get:
+      summary: List Patients
+      tags: [PatientManagement]
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: pageNo
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, default: 25 }
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientSearchResponse'
+    post:
+      summary: Create Patient
+      tags: [PatientManagement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInfo'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientInfo'
+        '400':
+          $ref: '#/components/responses/badRequest'
+
+  /patients/{id}:
+    get:
+      summary: Get Patient by ID
+      tags: [PatientManagement]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientInfo'
+        '404':
+          $ref: '#/components/responses/notFound'
+    put:
+      summary: Update Patient
+      tags: [PatientManagement]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInfo'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientInfo'
+    delete:
+      summary: Delete Patient
+      tags: [PatientManagement]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
 
 components:
   schemas:
-    PatientDisplay:
-      type: object
-      properties:
-        id:
-          type: string
-        firstName:
-          type: string
-        lastName:
-          type: string
-        dateOfBirth:
-          type: string
-          format: date
-        isPinned:
-          type: boolean
-        team:
-          type: object
-        agency:
-          type: object
-        insurance:
-          type: object
-        lastOrder:
-          type: object
-
-    PatientListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PatientDisplay'
-        totalRecords:
-          type: integer
-        pageNo:
-          type: integer
-        pagesCount:
-          type: integer
-
     PatientSearchResponse:
+      title: PatientSearchResponse
       type: object
+      required:
+        - patients
+        - totalRecords
+        - pageNo
+        - pagesCount
       properties:
         patients:
           type: array
           items:
-            $ref: '#/components/schemas/PatientInfoV2'
+            $ref: '#/components/schemas/PatientInfo'
         totalRecords:
           type: integer
+          example: 345
         pageNo:
           type: integer
+          example: 2
         pagesCount:
           type: integer
+          example: 10
 
-    PatientInfoV2:
+    PatientInfo:
+      title: PatientInfo
       type: object
+      required:
+        - patientId
+        - firstName
+        - lastName
       properties:
         patientId:
           type: string
+          example: "6209"
         firstName:
           type: string
+          example: "Shari"
         lastName:
           type: string
+          example: "Abreu"
         dob:
           type: string
+          format: date
+          example: "1953-11-25"
         team:
           type: string
+          example: "Blue"
         isPinned:
           type: boolean
+          example: true
+          default: false
+        lastOrder:
+          $ref: '#/components/schemas/LastOrder'
         payer:
-          type: object
+          $ref: '#/components/schemas/Payer'
+
+    LastOrder:
+      title: LastOrder
+      type: object
+      properties:
+        id:
+          type: string
+          example: "order123123123"
+        date:
+          type: string
+          example: "10/10/2023"
+          pattern: '^\d{2}/\d{2}/\d{4}$'
+        status:
+          type: string
+          example: "PENDING"
+          enum: [PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED]
+
+    Payer:
+      title: Payer
+      type: object
+      properties:
+        payerTypeName:
+          type: string
+          example: "Private Insurance/Self Pay"
+        planName:
+          type: string
+          example: "Cigna Silver"
+        planId:
+          type: string
+          example: "1AD4EF7HA10"
+        groupNumber:
+          type: string
+          example: "A4530"
+
+    ErrorResponse:
+      title: ErrorResponse
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "Bad Request"
+        detailedMessage:
+          type: string
+          example: "Invalid query parameter"
 
   responses:
-    BadRequest:
+    badRequest:
       description: Bad Request
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
+    unAuthorized:
       description: Unauthorized
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
+    forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    notFound:
       description: Not Found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Conflict:
-      description: Conflict
+    internalServerError:
+      description: Internal Server Error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-
-    ErrorResponse:
-      type: object
-      properties:
-        code:
-          type: integer
-        message:
-          type: string
-        details:
-          type: string
 
   securitySchemes:
     PingTokenAuth:
       name: Ping-Authorization
       type: apiKey
       in: header
-      description: Ping Token Authentication
     jwtTokenAuth:
       name: Authorization
       type: apiKey
       in: header
-      description: JWT Token Authentication

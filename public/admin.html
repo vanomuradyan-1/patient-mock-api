@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,52 +21,52 @@
             justify-content: center;
             padding: 20px;
         }
-        
+
         .container {
             background: white;
             border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
             max-width: 600px;
             width: 100%;
         }
-        
+
         h1 {
             color: #333;
             margin-bottom: 10px;
             font-size: 28px;
         }
-        
+
         .subtitle {
             color: #666;
             margin-bottom: 30px;
             font-size: 14px;
         }
-        
+
         .section {
             background: #f8f9fa;
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 20px;
         }
-        
+
         .section h2 {
             color: #444;
             font-size: 18px;
             margin-bottom: 12px;
         }
-        
+
         .section p {
             color: #666;
             font-size: 14px;
             margin-bottom: 16px;
             line-height: 1.5;
         }
-        
+
         .input-group {
             margin-bottom: 16px;
         }
-        
+
         label {
             display: block;
             color: #555;
@@ -73,7 +74,7 @@
             font-weight: 600;
             margin-bottom: 8px;
         }
-        
+
         input[type="number"] {
             width: 100%;
             padding: 12px;
@@ -82,12 +83,12 @@
             font-size: 16px;
             transition: border-color 0.3s;
         }
-        
+
         input[type="number"]:focus {
             outline: none;
             border-color: #667eea;
         }
-        
+
         button {
             width: 100%;
             padding: 14px 24px;
@@ -100,33 +101,33 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .btn-danger {
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             color: white;
         }
-        
+
         .btn-danger:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(245, 87, 108, 0.4);
         }
-        
+
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
-        
+
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
-        
+
         button:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none !important;
         }
-        
+
         .message {
             padding: 12px 16px;
             border-radius: 8px;
@@ -134,42 +135,43 @@
             font-size: 14px;
             display: none;
         }
-        
+
         .message.success {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
+
         .message.error {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        
+
         .message.show {
             display: block;
             animation: slideIn 0.3s ease;
         }
-        
+
         @keyframes slideIn {
             from {
                 opacity: 0;
                 transform: translateY(-10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
-        
+
         .links {
             margin-top: 30px;
             padding-top: 20px;
             border-top: 2px solid #e0e0e0;
             text-align: center;
         }
-        
+
         .links a {
             color: #667eea;
             text-decoration: none;
@@ -177,24 +179,25 @@
             margin: 0 12px;
             transition: color 0.3s;
         }
-        
+
         .links a:hover {
             color: #764ba2;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>🛠️ Admin Utilities</h1>
         <p class="subtitle">Manage patient data for testing and development</p>
-        
+
         <div class="section">
             <h2>🗑️ Clear All Data</h2>
             <p>Remove all patient records from the database. This action cannot be undone.</p>
             <button class="btn-danger" onclick="clearAllData()">Clear All Patients</button>
             <div id="clearMessage" class="message"></div>
         </div>
-        
+
         <div class="section">
             <h2>🎲 Generate Mock Patients</h2>
             <p>Create random patient records for testing purposes.</p>
@@ -205,13 +208,13 @@
             <button class="btn-primary" onclick="generatePatients()">Generate Patients</button>
             <div id="generateMessage" class="message"></div>
         </div>
-        
+
         <div class="links">
             <a href="/api-docs">📖 API Docs</a>
-            <a href="/api/v1/patients">📊 View Patients</a>
+            <a href="/api/patients">📊 View Patients</a>
         </div>
     </div>
-    
+
     <script>
         function showMessage(elementId, message, isSuccess) {
             const el = document.getElementById(elementId);
@@ -221,19 +224,19 @@
                 el.classList.remove('show');
             }, 5000);
         }
-        
+
         async function clearAllData() {
             if (!confirm('Are you sure you want to delete ALL patient records? This cannot be undone.')) {
                 return;
             }
-            
+
             try {
-                const response = await fetch('/api/v1/admin/clear', {
+                const response = await fetch('/api/admin/clear', {
                     method: 'DELETE'
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     showMessage('clearMessage', `✓ Successfully deleted ${data.deletedCount} patient(s)`, true);
                 } else {
@@ -243,30 +246,30 @@
                 showMessage('clearMessage', `✗ Network error: ${error.message}`, false);
             }
         }
-        
+
         async function generatePatients() {
             const count = parseInt(document.getElementById('patientCount').value);
-            
+
             if (!count || count < 1 || count > 1000) {
                 showMessage('generateMessage', '✗ Please enter a valid number between 1 and 1000', false);
                 return;
             }
-            
+
             const btn = event.target;
             btn.disabled = true;
             btn.textContent = 'Generating...';
-            
+
             try {
-                const response = await fetch('/api/v1/admin/generate', {
+                const response = await fetch('/api/admin/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ count })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     showMessage('generateMessage', `✓ Successfully generated ${data.generatedCount} patient(s)`, true);
                 } else {
@@ -281,4 +284,5 @@
         }
     </script>
 </body>
+
 </html>

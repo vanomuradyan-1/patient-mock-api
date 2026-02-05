@@ -1,0 +1,51 @@
+    PatientV1:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "e8bb7af1-dee6-43ad-a233-a33c37fff53b"
+        firstName:
+          type: string
+          example: "Emily"
+        lastName:
+          type: string
+          example: "Thomas"
+        dateOfBirth:
+          type: string
+          format: date
+          example: "1956-02-18"
+        email:
+          type: string
+          example: "emily.thomas@example.com"
+        insurance:
+          type: object
+          properties:
+            providerName: { type: string, example: "Blue Cross" }
+            policyNumber: { type: string, example: "XAT2P7" }
+            groupNumber: { type: string, example: "GRP249" }
+        status:
+          type: string
+          example: "DISCHARGED"
+        isPinned:
+          type: boolean
+          example: false
+        metadata:
+          type: object
+          properties:
+            createdAt: { type: string }
+            updatedAt: { type: string }
+        team:
+          type: object
+          properties:
+            name: { type: string, example: "Blue Team" }
+        agency:
+          type: object
+          properties:
+            name: { type: string, example: "HealthCare Plus" }
+            id: { type: string, example: "A100" }
+        lastOrder:
+          type: object
+          properties:
+            id: { type: string, example: "ORD-ZJQKO0DK" }
+            date: { type: string, example: "10/10/2023", description: "Format: MM/DD/YYYY" }
+            status: { type: string, example: "SHIPPED" }
