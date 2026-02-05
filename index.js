@@ -3,6 +3,8 @@ const sqlite3 = require("sqlite3").verbose();
 const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require('crypto');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
 const cors = require("cors");
 
 const app = express();
@@ -81,6 +83,26 @@ db.run(`
   )
 `);
 
+// SWAGGER DOCS
+const swaggerDocument = YAML.load('./swagger.yaml');
+const swaggerOptions = {
+    swaggerOptions: {
+        authAction: {
+            jwtTokenAuth: {
+                name: "jwtTokenAuth",
+                schema: { type: "apiKey", in: "header", name: "Authorization", description: "" },
+                value: "Bearer test"
+            },
+            PingTokenAuth: {
+                name: "PingTokenAuth",
+                schema: { type: "apiKey", in: "header", name: "Ping-Authorization", description: "" },
+                value: "ping"
+            }
+        }
+    }
+};
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
+
 // ------------------- PATIENTS API (/api/v1/patients) -------------------
 const API_BASE = '/api/v1';
 
@@ -140,11 +162,167 @@ function rowToPatient(row) {
         team: row.team ? JSON.parse(row.team) : undefined,
         agency: row.agency ? JSON.parse(row.agency) : undefined,
         lastOrder: row.lastOrder ? JSON.parse(row.lastOrder) : undefined,
+
+
+    };
+}
+
+function rowToPatientSearch(row) {
+    if (!row) return null;
+    const pat = rowToPatient(row);
+    // Map existing insurance to new 'payer' structure
+    let payerObj = undefined;
+    if (pat.insurance) {
+        payerObj = {
+            payerTypeName: pat.payer || "Private Insurance/Self Pay", // Use stored payer or default
+            planName: pat.insurance.providerName || "Unknown",
+            planId: pat.insurance.policyNumber || undefined,
+            groupNumber: pat.insurance.groupNumber || undefined
+        };
+    }
+
+    return {
+        patientId: pat.id,
+        firstName: pat.firstName,
+        lastName: pat.lastName,
+        dob: pat.dateOfBirth,
+        team: pat.team ? pat.team.name : undefined,
+        isPinned: pat.isPinned,
+        lastOrder: pat.lastOrder,
+        payer: payerObj
     };
 }
 
 // Allowed fields for sorting to avoid SQL injection
 const ALLOWED_SORT_FIELDS = new Set(['admissionDate', 'lastName', 'firstName', 'dateOfBirth']);
+const ALLOWED_SORT_FIELDS_V2 = new Set(['LAST_NAME', 'FIRST_NAME', 'TEAM', 'ADDRESS', 'PATIENT_ID']);
+
+// ------------------- V2 ENDPOINTS -------------------
+
+// SEARCH - GET /api/v1/patients/search
+app.get(`${API_BASE}/patients/search`, (req, res) => {
+    // 1. Header Validation
+    const auth = req.get('Authorization');
+    const pingAuth = req.get('Ping-Authorization');
+
+    if (!auth) return handleError(res, 401, "Unauthorized", null, "Full authentication is required to access this resource. Missing or invalid Authorization header.");
+    if (!pingAuth) return handleError(res, 401, "Unauthorized", null, "Missing required Ping-Authorization header.");
+
+    // 2. Query Param Validation
+    const errors = [];
+    const soldTo = req.query.soldTo;
+    if (!soldTo) errors.push("Required parameter 'soldTo' is missing");
+    else if (soldTo.trim() === "") errors.push("soldTo is required and cannot be empty");
+
+    const pageNo = Number(req.query.pageNo);
+    if (req.query.pageNo !== undefined && (isNaN(pageNo) || pageNo < 1)) errors.push("Invalid query parameter: pageNo must be greater than or equal to 1");
+
+    const pageSize = Number(req.query.pageSize);
+    if (req.query.pageSize !== undefined && (isNaN(pageSize) || pageSize < 1 || pageSize > 100)) errors.push("Invalid query parameter: pageSize must be between 1 and 100");
+
+    const sortBy = req.query.sortBy;
+    if (sortBy && !ALLOWED_SORT_FIELDS_V2.has(sortBy)) errors.push("Invalid sortBy value. Must be one of: LAST_NAME, FIRST_NAME, TEAM, ADDRESS, PATIENT_ID");
+
+    const sortMethod = req.query.sortMethod;
+    if (sortMethod && !['ASC', 'DESC'].includes(sortMethod)) errors.push("Invalid sortMethod value. Must be one of: ASC, DESC");
+
+    if (errors.length > 0) {
+        return handleError(res, 400, "Bad Request", null, errors.length === 1 ? errors[0] : errors.join('; '));
+    }
+
+    // 3. Execution
+    const q = (req.query.q || '').trim();
+    const pNo = Math.max(1, pageNo || 1);
+    const pSize = Math.max(1, Math.min(100, pageSize || 25));
+    const offset = (pNo - 1) * pSize;
+
+    // Sort Mapping
+    let dbSort = 'lastName ASC'; // default
+    if (sortBy) {
+        const dir = (sortMethod === 'DESC') ? 'DESC' : 'ASC';
+        switch (sortBy) {
+            case 'LAST_NAME': dbSort = `lastName ${dir}`; break;
+            case 'FIRST_NAME': dbSort = `firstName ${dir}`; break;
+            case 'PATIENT_ID': dbSort = `id ${dir}`; break;
+            // TEAM and ADDRESS are JSON/Text fields, sorting might be tricky or plain text. 
+            // For mock, simple text sort or ignore complex logic.
+            case 'TEAM': dbSort = `team ${dir}`; break;
+            case 'ADDRESS': dbSort = `address ${dir}`; break;
+        }
+    }
+
+    const where = [];
+    const params = [];
+
+    if (q) {
+        where.push("LOWER(firstName || ' ' || lastName || ' ' || COALESCE(guid,'') || ' ' || COALESCE(email,'')) LIKE ?");
+        params.push('%' + q.toLowerCase() + '%');
+    }
+
+    // soldTo is required but we don't have a column for it in this mock DB. 
+    // We'll ignore filtering by it but acknowledge its presence.
+
+    const whereClause = where.length ? ('WHERE ' + where.join(' AND ')) : '';
+
+    db.get(`SELECT COUNT(*) as cnt FROM patients ${whereClause}`, params, (err, countRow) => {
+        if (err) return handleError(res, 500, err.message || 'DB error');
+        const totalRecords = countRow ? countRow.cnt : 0;
+        const pagesCount = Math.ceil(totalRecords / pSize);
+
+        const sql = `SELECT * FROM patients ${whereClause} ORDER BY ${dbSort} LIMIT ? OFFSET ?`;
+        db.all(sql, [...params, pSize, offset], (err2, rows) => {
+            if (err2) return handleError(res, 500, err2.message || 'DB error');
+            const patients = rows.map(rowToPatientSearch);
+
+            res.json({
+                patients,
+                totalRecords,
+                pageNo: pNo,
+                pagesCount
+            });
+        });
+    });
+});
+
+// PIN - PUT /api/v1/patients/:id/pin
+app.put(`${API_BASE}/patients/:id/pin`, (req, res) => {
+    const id = req.params.id;
+    if (!id) return handleError(res, 400, 'Invalid id');
+
+    const body = req.body || {};
+    // Expect { isPinned: boolean }
+    if (body.isPinned === undefined) {
+        return handleError(res, 400, "Bad Request", null, "Required parameter 'isPinned' is missing");
+    }
+
+    const isPinned = body.isPinned ? 1 : 0;
+
+    // We update only isPinned. 
+    // Spec doesn't mention full metadata update, but let's be nice and touch updatedAt
+    const updatedAt = new Date().toISOString();
+    // We assume we can't get X-User here easily or just ignore. 
+    // But let's try to update metadata if we can, otherwise just simple update.
+
+    db.get('SELECT metadata FROM patients WHERE id = ?', [id], (mErr, mRow) => {
+        if (mErr) return handleError(res, 500, mErr.message || 'DB error');
+        if (!mRow) return handleError(res, 404, 'Patient not found'); // Check existence first
+
+        let existingMeta = {};
+        try { existingMeta = mRow.metadata ? JSON.parse(mRow.metadata) : {}; } catch (e) { }
+
+        const mergedMeta = {
+            ...existingMeta,
+            updatedAt
+        };
+
+        db.run('UPDATE patients SET isPinned = ?, metadata = ? WHERE id = ?', [isPinned, JSON.stringify(mergedMeta), id], function (err) {
+            if (err) return handleError(res, 500, err.message || 'DB error');
+            res.sendStatus(200);
+        });
+    });
+});
+
+
 
 // LIST & SEARCH - GET /api/v1/patients
 app.get(`${API_BASE}/patients`, (req, res) => {
@@ -636,6 +814,31 @@ function parseId(id) {
 }
 
 // start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+// Graceful shutdown
+function shutdown() {
+    console.log('Received kill signal, shutting down gracefully');
+    server.close(() => {
+        console.log('Closed out remaining connections');
+        db.close((err) => {
+            if (err) {
+                console.error('Error closing database', err.message);
+            } else {
+                console.log('Closed the database connection');
+            }
+            process.exit(0);
+        });
+    });
+
+    // Force close after 10s
+    setTimeout(() => {
+        console.error('Could not close connections in time, forcefully shutting down');
+        process.exit(1);
+    }, 10000);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

@@ -19,6 +19,15 @@ A mock REST API for managing patient data, built with Express and SQLite.
 All patient endpoints are prefixed with:
 `http://localhost:5178/api/v1`
 
+## 📖 API Documentation (Swagger UI)
+
+Interactive API documentation is available at:
+**[http://localhost:5178/api-docs](http://localhost:5178/api-docs)**
+
+- **Explore Endpoints**: View all available API routes (V1 CRUD + V2 Search/Pin)
+- **Test Requests**: Send requests directly from the browser
+- **Pre-authorized**: Authentication headers are automatically filled
+
 ---
 
 ## 📚 Endpoints
