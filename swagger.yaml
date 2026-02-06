@@ -1,136 +1,285 @@
-openapi: 3.0.0
-x-stoplight:
-  id: ck02vd3fmtbpo
+openapi: 3.0.3
 info:
-  title: PatientManagement API
   version: v1
-  description: This API provides endpoints to manage Patient information.
+  title: PatientManagement
+  description: APIs for searching and managing patients for eCom.
   contact:
-    name: Jupiter Squad
-    email: EcomJupiterSquad@medline.com
+    name: Bird Of Pray Squad
+    email: BPruess@medline.com
 servers:
-  - url: 'http://localhost:5178/api'
-    description: Local Dev Environment
-  - url: 'https://devapic.medline.com/ecom/patient'
+  - url: 'https://devapic.medline.com/ecom/patient/v1'
     description: Dev Environment
-  - url: 'https://testapic.medline.com/ecom/patient'
+  - url: 'https://testapic.medline.com/ecom/patient/v1'
     description: Test Environment
-  - url: 'https://apic.medline.com/ecom/patient'
+  - url: 'https://apic.medline.com/ecom/ecom/patient/v1'
     description: Production Environment
-tags:
-  - name: PatientSearch
-    description: Search and retrieve patient information.
-  - name: PatientManagement
-    description: CRUD operations.
 paths:
-  /patients/search:
+  /patients/{shipToId}:
     get:
-      summary: Search Patients with Enhanced Filters
       tags:
-        - PatientSearch
-      operationId: search-patients-v2
-      description: Search and retrieve patients with pagination, filtering, and sorting capabilities. Returns patient information including demographics, team, insurance, and order details.
-      x-internal: true
+        - Patients
+      summary: Search patients by ship-to account
+      description: |
+        Returns a paginated list of patients scoped to a ship-to account. Supports free-text search, filtering, sorting, and pagination.
+      operationId: searchPatients
       parameters:
-        - in: header
-          name: Authorization
-          description: JWT authentication token
+        - name: shipToId
+          in: path
+          description: Ship-to account identifier used to scope the patient search.
+          required: true
           schema:
             type: string
-            example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-          required: true
-        - in: header
-          name: Ping-Authorization
-          description: 'Ping authentication token for internal consumers'
-          schema:
-            type: string
-            example: ping-token-value
-          required: true
-        - schema:
-            type: string
-            example: "100840"
             minLength: 1
+            example: '1563073'
+        - name: q
           in: query
-          name: soldTo
-          description: Sold-to account number
-          required: true
-        - schema:
-            type: string
-            # example: "abc"
-          in: query
-          name: q
-          description: Search query to filter patients by name, ID, or other attributes
+          description: 'Free-text search across first name, last name, patientId, and team name.'
           required: false
-        - schema:
+          schema:
+            type: string
+            maxLength: 200
+            example: robert
+        - name: teamId
+          in: query
+          description: Filter by team.
+          required: false
+          schema:
+            type: string
+            example: team-1
+        - name: sortBy
+          in: query
+          description: Sort field.
+          required: false
+          schema:
+            $ref: '#/components/schemas/PatientSortBy'
+            example: PatientName
+        - name: sortDir
+          in: query
+          description: Sort direction.
+          required: false
+          schema:
+            $ref: '#/components/schemas/SortDirection'
+            example: asc
+        - name: pageNo
+          in: query
+          description: 1-based page index.
+          required: false
+          schema:
             type: integer
+            minimum: 1
             default: 1
             example: 1
-            minimum: 1
+        - name: pageSize
           in: query
-          name: pageNo
-          description: Page number for pagination (1-based indexing)
+          description: Number of records per page.
           required: false
-        - schema:
+          schema:
             type: integer
+            minimum: 1
+            maximum: 25
             default: 25
             example: 25
-            minimum: 1
-            maximum: 100
+        - name: source
           in: query
-          name: pageSize
-          description: Number of records per page
-          required: false
-        - schema:
+          description: source For audit
+          schema:
             type: string
             enum:
-              - LAST_NAME
-              - FIRST_NAME
-              - TEAM
-              - ADDRESS
-              - PATIENT_ID
-            # example: FIRST_NAME
+              - MANAGE_PATIENT
+              - CART
+            example: CART
+        - name: sourceId
           in: query
-          name: sortBy
-          description: Field name to sort results by
-          required: false
-        - schema:
+          description: sourceId for Audit
+          schema:
             type: string
-            enum:
-              - ASC
-              - DESC
-            # example: ASC
-            # default: ASC
+            example: cardId
+        - name: applicationSessionId
           in: query
-          name: sortMethod
-          description: Sort order direction
-          required: false
+          description: Application session id for Audit
+          schema:
+            type: string
+            example: SessionId
       responses:
         '200':
-          description: Patients retrieved successfully
+          description: Paged patient search results
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatientSearchResponse'
         '400':
-          $ref: '#/components/responses/badRequest'
-        '401':
-          $ref: '#/components/responses/unAuthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/notFound'
+          description: 'Invalid request'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '500':
-          $ref: '#/components/responses/internalServerError'
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      security:
+        - PingTokenAuth: []
+        - jwtTokenAuth: []
+
+  /patients:
+    post:
+      tags:
+        - Patients
+      summary: Create a new patient
+      operationId: createPatient
+      requestBody:
+        description: Patient object to create
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Patient'
+      responses:
+        '201':
+          description: Patient created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Patient already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      security:
+        - PingTokenAuth: []
+        - jwtTokenAuth: []
+
+  /patients/{id}:
+    get:
+      tags:
+        - Patients
+      summary: Get patient by ID
+      operationId: getPatient
+      parameters:
+        - name: id
+          in: path
+          description: Patient ID (GUID)
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Patient details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Patient not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      security:
+        - PingTokenAuth: []
+        - jwtTokenAuth: []
+
+    put:
+      tags:
+        - Patients
+      summary: Update a patient (Full)
+      operationId: updatePatient
+      parameters:
+        - name: id
+          in: path
+          description: Patient ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Patient'
+      responses:
+        '200':
+          description: Patient updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Patient not found
+      security:
+        - PingTokenAuth: []
+        - jwtTokenAuth: []
+
+    patch:
+      tags:
+        - Patients
+      summary: Update a patient (Partial)
+      operationId: patchPatient
+      parameters:
+        - name: id
+          in: path
+          description: Patient ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Patient'
+      responses:
+        '200':
+          description: Patient updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Patient not found
+      security:
+        - PingTokenAuth: []
+        - jwtTokenAuth: []
+
+    delete:
+      tags:
+        - Patients
+      summary: Delete a patient
+      operationId: deletePatient
+      parameters:
+        - name: id
+          in: path
+          description: Patient ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Patient deleted
+        '404':
+          description: Patient not found
+      security:
+        - PingTokenAuth: []
+        - jwtTokenAuth: []
 
   /patients/{id}/pin:
     put:
-      summary: Pin or Unpin a Patient
       tags:
-        - PatientSearch
-      operationId: pin-patient
+        - Patients
+      summary: Pin or Unpin a patient
+      operationId: pinPatient
       parameters:
-        - in: path
-          name: id
+        - name: id
+          in: path
+          description: Patient ID
           required: true
           schema:
             type: string
@@ -140,258 +289,208 @@ paths:
           application/json:
             schema:
               type: object
-              required: [isPinned]
               properties:
                 isPinned:
                   type: boolean
+                  description: True to pin, False to unpin
+              required:
+                - isPinned
       responses:
         '200':
-          description: Status updated successfully
-        '400':
-          $ref: '#/components/responses/badRequest'
+          description: Pin status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: OK
+                  isPinned:
+                    type: boolean
         '404':
-          $ref: '#/components/responses/notFound'
-        '500':
-          $ref: '#/components/responses/internalServerError'
+          description: Patient not found
+      security:
+        - PingTokenAuth: []
+        - jwtTokenAuth: []
 
-  # CRUD Operations
-  /patients:
-    get:
-      summary: List Patients
-      tags: [PatientManagement]
-      parameters:
-        - in: query
-          name: q
-          schema: { type: string }
-        - in: query
-          name: pageNo
-          schema: { type: integer, default: 1 }
-        - in: query
-          name: pageSize
-          schema: { type: integer, default: 25 }
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientSearchResponse'
-    post:
-      summary: Create Patient
-      tags: [PatientManagement]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatientInfo'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientInfo'
-        '400':
-          $ref: '#/components/responses/badRequest'
-
-  /patients/{id}:
-    get:
-      summary: Get Patient by ID
-      tags: [PatientManagement]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientInfo'
-        '404':
-          $ref: '#/components/responses/notFound'
-    put:
-      summary: Update Patient
-      tags: [PatientManagement]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatientInfo'
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PatientInfo'
-    delete:
-      summary: Delete Patient
-      tags: [PatientManagement]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
-      responses:
-        '204':
-          description: Deleted
-
+tags:
+  - name: Patients
+    description: Patient search and management
 components:
+  securitySchemes:
+    PingTokenAuth:
+      type: apiKey
+      description: Ping Token
+      name: Ping-Authorization
+      in: header
+    jwtTokenAuth:
+      type: apiKey
+      description: JWT Token
+      name: Authorization
+      in: header
   schemas:
+    PatientSortBy:
+      type: string
+      enum:
+        - PatientName
+        - PatientId
+        - LastOrderDate
+        - LastOrderStatus
+        - PrimaryPayer
+        - Team
+        - Priority
+      example: PatientName
+    SortDirection:
+      type: string
+      enum:
+        - asc
+        - desc
+      default: asc
+      example: asc
     PatientSearchResponse:
-      title: PatientSearchResponse
       type: object
-      required:
-        - patients
-        - totalRecords
-        - pageNo
-        - pagesCount
       properties:
+        shipToId:
+          type: string
+          description: Ship-to account identifier used to scope the search.
+        pageNo:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalCount:
+          type: integer
+          description: Total number of matching records (not just this page).
+          minimum: 0
         patients:
           type: array
           items:
-            $ref: '#/components/schemas/PatientInfo'
-        totalRecords:
-          type: integer
-          example: 345
-        pageNo:
-          type: integer
-          example: 2
-        pagesCount:
-          type: integer
-          example: 10
-
-    PatientInfo:
-      title: PatientInfo
-      type: object
+            $ref: '#/components/schemas/Patient'
       required:
-        - patientId
-        - firstName
-        - lastName
+        - shipToId
+        - pageNo
+        - pageSize
+        - totalCount
+        - patients
+    # Renamed from PatientListItem to Patient for general CRUD use
+    Patient:
+      type: object
       properties:
+        patientKey:
+          type: string
+          description: Internal unique identifier (UUID/string).
+          example: pt-8f2c0b5d
         patientId:
           type: string
-          example: "6209"
+          nullable: true
+          description: Display patient identifier if available.
+          example: '00000000'
         firstName:
           type: string
-          example: "Shari"
+          example: Robert
         lastName:
           type: string
-          example: "Abreu"
-        dob:
+          example: Baratheon
+        dateOfBirth:
           type: string
+          nullable: true
           format: date
-          example: "1953-11-25"
+          example: '1970-01-01'
+        priority:
+          $ref: '#/components/schemas/PatientPriority'
         team:
-          type: string
-          example: "Blue"
-        isPinned:
-          type: boolean
-          example: true
-          default: false
+          $ref: '#/components/schemas/TeamRef'
+        primaryPayer:
+          $ref: '#/components/schemas/PayerRef'
         lastOrder:
-          $ref: '#/components/schemas/LastOrder'
-        payer:
-          $ref: '#/components/schemas/Payer'
-
-    LastOrder:
-      title: LastOrder
+          $ref: '#/components/schemas/LastOrderSummary'
+      required:
+        - patientKey
+        - firstName
+        - lastName
+        - priority
+    PatientPriority:
+      type: string
+      enum:
+        - Pinned
+        - Normal
+      example: Pinned
+    TeamRef:
       type: object
+      nullable: true
       properties:
-        id:
+        teamId:
           type: string
-          example: "order123123123"
-        date:
+          example: team-1
+        name:
           type: string
-          example: "10/10/2023"
-          pattern: '^\d{2}/\d{2}/\d{4}$'
+          example: Team 1
+    PayerRef:
+      type: object
+      nullable: true
+      properties:
+        payerId:
+          type: string
+          example: payer-anthem-blue
+        payerType:
+          type: string
+          enum:
+            - Insurance
+            - Agency
+            - SelfPay
+            - Other
+          example: Insurance
+        displayName:
+          type: string
+          example: HHA - Anthem Blue
+    LastOrderSummary:
+      type: object
+      nullable: true
+      properties:
+        orderNumber:
+          type: string
+          example: '721030618'
         status:
           type: string
-          example: "PENDING"
-          enum: [PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED, RETURNED]
-
-    Payer:
-      title: Payer
+          example: Delivered
+        orderDate:
+          type: string
+          format: date
+          example: '2026-01-15'
+        displayText:
+          type: string
+          description: Pre-formatted UI string.
+          example: 721030618 - Delivered
+    ApiError:
       type: object
       properties:
-        payerTypeName:
+        code:
           type: string
-          example: "Private Insurance/Self Pay"
-        planName:
+          example: bad_request
+        message:
           type: string
-          example: "Cigna Silver"
-        planId:
+          example: Invalid request.
+        correlationId:
           type: string
-          example: "1AD4EF7HA10"
-        groupNumber:
-          type: string
-          example: "A4530"
-
-    ErrorResponse:
-      title: ErrorResponse
-      type: object
+          nullable: true
+          example: c7e8b8c0b2c2451b
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiErrorDetail'
       required:
         - code
         - message
+    ApiErrorDetail:
+      type: object
       properties:
-        code:
-          type: integer
-          example: 400
-        message:
+        field:
           type: string
-          example: "Bad Request"
-        detailedMessage:
+          nullable: true
+          example: sortBy
+        issue:
           type: string
-          example: "Invalid query parameter"
-
-  responses:
-    badRequest:
-      description: Bad Request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    unAuthorized:
-      description: Unauthorized
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    forbidden:
-      description: Forbidden
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    notFound:
-      description: Not Found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    internalServerError:
-      description: Internal Server Error
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-
-  securitySchemes:
-    PingTokenAuth:
-      name: Ping-Authorization
-      type: apiKey
-      in: header
-    jwtTokenAuth:
-      name: Authorization
-      type: apiKey
-      in: header
+          example: 'must be one of: PatientName, PatientId, LastOrderDate'

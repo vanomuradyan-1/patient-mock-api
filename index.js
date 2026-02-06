@@ -110,7 +110,7 @@ app.get('/', (req, res) => {
 });
 
 // ------------------- API BASE -------------------
-const API_BASE = '/api';
+const API_BASE = '/api/v1';
 
 
 
@@ -165,25 +165,38 @@ app.post(`${API_BASE}/admin/generate`, (req, res) => {
             });
         }
 
-        const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : randomUUID();
+        const patientKey = 'pt-' + Math.random().toString(36).substring(2, 10);
+        // Display ID (patientId in spec) - let's make it 8 digits
+        const displayId = Math.floor(10000000 + Math.random() * 90000000).toString();
+
         const firstName = randomItem(firstNames);
         const lastName = randomItem(lastNames);
+        // Spec Example: 1970-01-01 (YYYY-MM-DD)
         const dob = randomDate(new Date(1940, 0, 1), new Date(2010, 0, 1));
-        const team = { name: randomItem(teams) };
-        const agency = randomItem(agencies);
-        const insurance = {
-            providerName: randomItem(insuranceProviders),
-            policyNumber: Math.random().toString(36).substring(2, 8).toUpperCase(),
-            groupNumber: 'GRP' + Math.floor(Math.random() * 1000)
+
+        const team = {
+            teamId: 'team-' + Math.floor(Math.random() * 10),
+            name: randomItem(teams)
         };
+
+        // Spec: primaryPayer
+        const primaryPayer = {
+            payerId: 'payer-' + randomItem(['anthem', 'cigna', 'aetna']),
+            payerType: randomItem(['Insurance', 'Agency', 'SelfPay', 'Other']),
+            displayName: randomItem(insuranceProviders) + ' - PPO'
+        };
+
         const lastOrder = {
-            id: 'ORD-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-            // V2 Requirement: MM/DD/YYYY
-            date: new Date(new Date(2023, 0, 1).getTime() + Math.random() * (new Date().getTime() - new Date(2023, 0, 1).getTime())).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
-            status: randomItem(['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'])
+            orderNumber: Math.floor(Math.random() * 1000000000).toString(),
+            status: randomItem(['Pending', 'Processing', 'Shipped', 'Delivered']),
+            // Spec Example: 2026-01-15 (YYYY-MM-DD)
+            orderDate: new Date(new Date(2023, 0, 1).getTime() + Math.random() * (new Date().getTime() - new Date(2023, 0, 1).getTime())).toISOString().split('T')[0],
+            displayText: '' // Will fill below
         };
-        const status = randomItem(statuses);
-        const isPinned = Math.random() > 0.8 ? 1 : 0;
+        lastOrder.displayText = `${lastOrder.orderNumber} - ${lastOrder.status}`;
+
+        const priority = Math.random() > 0.8 ? 'Pinned' : 'Normal';
+
         const metadata = {
             createdAt,
             createdBy: 'admin-generator',
@@ -191,19 +204,32 @@ app.post(`${API_BASE}/admin/generate`, (req, res) => {
             updatedBy: 'admin-generator'
         };
 
-        const sql = `INSERT INTO patients (id,firstName,lastName,dateOfBirth,email,insurance,status,isPinned,metadata,team,agency,lastOrder) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
+        // We map new fields to DB columns. 
+        // DB Columns: id, guid, firstName, lastName, dateOfBirth, team, insurance (use for primaryPayer), isPinned (use for priority?), lastOrder
+        // We might need to overloading existing columns or add new ones? 
+        // For simplicity in this Mock, I'll store strictly what fits or JSON strongy into existing text columns.
+        // id -> patientKey
+        // guid -> displayId (or vice versa? Spec says patientKey is internal UUID, patientId is display)
+        // Let's use id=patientKey. 
+        // Store 'displayId' in 'guid' column or 'phone'? Let's reuse 'phone' or just assume 'guid' is display ID.
+        // Actually table has 'id' and 'guid'.
+
+        const sql = `INSERT INTO patients (id, guid, firstName, lastName, dateOfBirth, email, insurance, status, isPinned, metadata, team, agency, lastOrder) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+
         const params = [
-            id,
+            patientKey,          // id
+            displayId,           // guid (acting as patientId display)
             firstName,
             lastName,
-            dob,
+            dob,                 // YYYY-MM-DD
             `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
-            JSON.stringify(insurance),
-            status,
-            isPinned,
+            JSON.stringify(primaryPayer), // store primaryPayer in insurance col
+            'ACTIVE',
+            priority === 'Pinned' ? 1 : 0, // Map back to boolean for DB schema compatibility? Or store string if I change schema?
+            // DB schema isPinned is INTEGER. I'll stick to 1/0 for storage, map in read.
             JSON.stringify(metadata),
             JSON.stringify(team),
-            JSON.stringify(agency),
+            JSON.stringify({}), // agency empty
             JSON.stringify(lastOrder)
         ];
 
@@ -213,6 +239,7 @@ app.post(`${API_BASE}/admin/generate`, (req, res) => {
         });
     };
 
+    // Clear existing for clean slate? No, User can clear manually.
     insertPatient(0);
 });
 
@@ -286,7 +313,7 @@ function rowToPatient(row) {
     };
 }
 
-function rowToPatientSearch(row) {
+function rowToPatientLegacy(row) {
     if (!row) return null;
     const pat = rowToPatient(row);
     // Map existing insurance to new 'payer' structure
@@ -342,13 +369,31 @@ function rowToPatientSearch(row) {
 
 // Allowed fields for sorting to avoid SQL injection
 const ALLOWED_SORT_FIELDS = new Set(['admissionDate', 'lastName', 'firstName', 'dateOfBirth']);
-const ALLOWED_SORT_FIELDS_V2 = new Set(['LAST_NAME', 'FIRST_NAME', 'TEAM', 'ADDRESS', 'PATIENT_ID']);
+const ALLOWED_SORT_FIELDS_V2 = new Set(['PatientName', 'PatientId', 'LastOrderDate', 'LastOrderStatus', 'PrimaryPayer', 'Team', 'Priority']);
 
 // ------------------- V2 ENDPOINTS -------------------
 
 // SEARCH - GET /api/v2/patients/search
-app.get(`${API_BASE}/patients/search`, (req, res) => {
-    // 1. Header Validation (Relaxed/Autofilled)
+// SEARCH - GET /api/v1/patients/:shipToId
+app.get(`${API_BASE}/patients/:shipToId`, (req, res, next) => {
+    // Check if :shipToId is a numeric account ID (Search) or UUID (Single Get legacy fallback?)
+    // Spec says shipToId is string, example '1563073'.
+    // If we want to support GET /patients/:id for single patient, we need to disambiguate.
+    // However, the spec doesn't show GET /patients/:id.
+    // If the Admin UI relies on getting a single patient by ID, we might have an issue.
+    // Admin UI uses GET /api/v1/patients?q=... and GET /api/v1/patients for list.
+    // It doesn't seem to open a single patient view in the code I saw.
+    // So assume this is strictly the Search endpoint.
+
+    // Check if it matches UUID format? If so, pass to next() to handle by :id handler?
+    const possibleUUID = /^[0-9a-f]{8}-[0-9a-f]{4}/.test(req.params.shipToId) || req.params.shipToId.startsWith('pt-');
+    if (possibleUUID) return next();
+
+    const shipToId = req.params.shipToId;
+
+    // 1. Header Validation (Relaxed)
+
+    // 2. Query Param Validation
     // We check them but won't block if missing, as requested ("autofilled")
     // If specific logic is needed to populate them in backend for forwarding, we'd do it here.
     // For mock response, we just proceed.
@@ -415,13 +460,14 @@ app.get(`${API_BASE}/patients/search`, (req, res) => {
         const sql = `SELECT * FROM patients ${whereClause} ORDER BY ${dbSort} LIMIT ? OFFSET ?`;
         db.all(sql, [...params, pSize, offset], (err2, rows) => {
             if (err2) return handleError(res, 500, err2.message || 'DB error');
-            const patients = rows.map(rowToPatientSearch);
+            const patients = rows.map(rowToPatientListItem);
 
             res.json({
+                shipToId: shipToId, // In Spec
                 patients,
-                totalRecords,
+                totalCount: totalRecords, // Spec: totalCount
                 pageNo: pNo,
-                pagesCount
+                pageSize: pSize // Spec: pageSize
             });
         });
     });
@@ -513,7 +559,7 @@ app.get(`${API_BASE}/patients`, (req, res) => {
             // but strictly CRUD usually returns full object. 
             // User said "data model should be liek [V2 example]" for "patient model".
             // I will use rowToPatientSearch to satisfy "single version model" requirement.
-            const data = rows.map(rowToPatientSearch);
+            const data = rows.map(rowToPatientListItem);
 
             res.json({
                 data: data,
@@ -534,8 +580,7 @@ app.get(`${API_BASE}/patients/:id`, (req, res) => {
     db.get('SELECT * FROM patients WHERE id = ?', [id], (err, row) => {
         if (err) return handleError(res, 500, err.message || 'DB error');
         if (!row) return handleError(res, 404, 'Patient not found');
-        // V2 Format
-        res.json(rowToPatientSearch(row));
+        res.json(rowToPatientListItem(row));
     });
 });
 
@@ -1045,3 +1090,53 @@ function shutdown() {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
+
+// V1 Mapper Function
+function rowToPatientListItem(row) {
+    if (!row) return null;
+    const pat = rowToPatient(row);
+
+    // Mapping for V1 Spec
+    const priority = pat.isPinned ? "Pinned" : "Normal";
+
+    // Team
+    const team = pat.team ? {
+        teamId: pat.team.teamId || pat.team.id || "team-1",
+        name: pat.team.name
+    } : null;
+
+    // Primary Payer
+    let primaryPayer = null;
+    if (pat.insurance && typeof pat.insurance === 'object') {
+        primaryPayer = {
+            payerId: pat.insurance.payerId || "payer-unknown",
+            payerType: pat.insurance.payerType || "Insurance",
+            displayName: pat.insurance.displayName || pat.insurance.providerName || "Unknown"
+        };
+    } else if (pat.payer) {
+        primaryPayer = { payerId: "payer-legacy", payerType: "Insurance", displayName: pat.payer };
+    }
+
+    // Last Order
+    let lastOrder = null;
+    if (pat.lastOrder && typeof pat.lastOrder === 'object') {
+        lastOrder = {
+            orderNumber: pat.lastOrder.orderNumber || pat.lastOrder.id,
+            status: pat.lastOrder.status,
+            orderDate: pat.lastOrder.orderDate || pat.lastOrder.date,
+            displayText: pat.lastOrder.displayText || `${pat.lastOrder.orderNumber || pat.lastOrder.id} - ${pat.lastOrder.status}`
+        };
+    }
+
+    return {
+        patientKey: pat.id,
+        patientId: pat.guid || pat.id,
+        firstName: pat.firstName,
+        lastName: pat.lastName,
+        dateOfBirth: pat.dateOfBirth,
+        priority: priority,
+        team: team,
+        primaryPayer: primaryPayer,
+        lastOrder: lastOrder
+    };
+}

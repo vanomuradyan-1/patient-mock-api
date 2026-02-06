@@ -211,7 +211,7 @@
 
         <div class="links">
             <a href="/api-docs">📖 API Docs</a>
-            <a href="/api/patients">📊 View Patients</a>
+            <a href="/api/v1/patients">📊 View Patients</a>
         </div>
     </div>
 
@@ -231,7 +231,7 @@
             }
 
             try {
-                const response = await fetch('/api/admin/clear', {
+                const response = await fetch('/api/v1/admin/clear', {
                     method: 'DELETE'
                 });
 
@@ -260,7 +260,7 @@
             btn.textContent = 'Generating...';
 
             try {
-                const response = await fetch('/api/admin/generate', {
+                const response = await fetch('/api/v1/admin/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
