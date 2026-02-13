@@ -15,9 +15,29 @@ A mock REST API for managing patient data, built with Express and SQLite.
    ```
    The server will start on `http://localhost:5178`.
 
+3. **Stop the Server**
+   - Press `Ctrl+C` in the terminal
+   - Or run: `taskkill /F /IM node.exe` (kills all Node processes)
+
 ## 🔗 Base URL
 All patient endpoints are prefixed with:
 `http://localhost:5178/api/v1`
+
+## 📖 API Documentation (Swagger UI)
+
+Interactive API documentation is available at:
+**[http://localhost:5178/api-docs](http://localhost:5178/api-docs)**
+
+- **Explore Endpoints**: View all available API routes (V1 CRUD + V2 Search/Pin)
+- **Test Requests**: Send requests directly from the browser
+- **Pre-authorized**: Authentication headers are automatically filled
+
+## 🛠️ Admin Utilities
+
+Access the admin page at: **[http://localhost:5178/](http://localhost:5178/)**
+
+- **Clear All Data**: Remove all patient records from the database
+- **Generate Mock Patients**: Create random test data (1-1000 patients)
 
 ---
 
