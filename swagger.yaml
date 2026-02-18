@@ -94,6 +94,64 @@ paths:
                   details:
                     id: "11369805630"
                     username: "AUTO_HH_RW"
+  /apic/ecom/barcode/label/v1/print:
+    post:
+      summary: Print Barcode Label
+      tags: [APIC]
+      operationId: printBarcodeLabel
+      requestBody:
+        description: Barcode print request payload
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                facilityId:
+                  type: string
+                  example: "1483051"
+                barcodeInfo:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      barcodeDesc:
+                        type: string
+                      barcodeText:
+                        type: string
+                      barcodeValue:
+                        type: string
+                      secondaryDesc:
+                        type: string
+                paperFormat:
+                  type: string
+                  example: "A4"
+                printCodeOnLabel:
+                  type: boolean
+                  example: true
+                labelType:
+                  type: string
+                  example: "REGULAR"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  responseCode:
+                    type: integer
+                    example: 200
+                  responseName:
+                    type: string
+                    example: "Success"
+                  data:
+                    type: string
+                    description: Base64 encoded PDF string
+                  fileType:
+                    type: string
+                    example: "application/pdf"
   /patients/{shipToId}:
     get:
       tags:

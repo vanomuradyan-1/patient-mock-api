@@ -407,6 +407,25 @@ app.get(`${API_BASE}/apic/ecom/user/usercontext/v2/details`, (req, res) => {
     });
 });
 
+// POST - Print Barcode Label
+app.post(`${API_BASE}/apic/ecom/barcode/label/v1/print`, (req, res) => {
+    // Expected Payload:
+    // {
+    //     "facilityId": "1483051",
+    //     "barcodeInfo": [ ... ],
+    //     "paperFormat": "A4",
+    //     "printCodeOnLabel": true,
+    //     "labelType": "REGULAR"
+    // }
+
+    res.json({
+        "responseCode": 200,
+        "responseName": "Success",
+        "data": "JVBERi0xLjQKJeLjz9MKNCAwIG9iago8PC9MZW5ndGggMTc0L0ZpbHRlci9GbGF0ZURlY29kZT4+c3RyZWFtCnichY7NCoJAFEb38xTf0iDHO/+6LKw0qBBm0b5wEUj4/ptmRCxJimHg43I4nJ5tPVMWzlj4OyOkTsax86xh/fAljuF+iBvEc3K6AMU3bk1wVHCd49Yhu7YC5RNN9IqBExBWwSniJqg7lu0FcviWJSv/mJi3JSDSxGPISKc1uZThNvSSGNnktKlqsUZZXc51NIb05VAl7bxUfpXqgP0r/dD8TtVSLKTKeeoLbRlOAwplbmRzdHJlYW0KZW5kb2JqCjYgMCBvYmoKPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9SZXNvdXJjZXM8PC9Gb250PDwvRjEgMyAwIFI+Pi9YT2JqZWN0PDwvWGYxIDEgMCBSL1hmMiAyIDAgUj4+Pj4vQ29udGVudHMgNCAwIFIvUGFyZW50IDUgMCBSPj4KZW5kb2JqCjMgMCBvYmoKPDwvVHlwZS9Gb250L1N1YnR5cGUvVHlwZTEvQmFzZUZvbnQvSGVsdmV0aWNhL0VuY29kaW5nL1dpbkFuc2lFbmNvZGluZz4+CmVuZG9iagoyIDAgb2JqCjw8L1R5cGUvWE9iamVjdC9TdWJ0eXBlL0Zvcm0vUmVzb3VyY2VzPDw+Pi9CQm94WzAgMCAzMDkuNiAyNF0vRm9ybVR5cGUgMS9NYXRyaXggWzEgMCAwIDEgMCAwXS9MZW5ndGggMzcyL0ZpbHRlci9GbGF0ZURlY29kZT4+c3RyZWFtCnicjVVJbsMwDLznFXmBwRlqfVDbe/9/qGMLMDW8FAGSUJY4i0ayve38/P68Pj842pvl/fv14lE+D46x6nL+i/WQGtxLPzvFfujXwDODdnUIiArBdnEIM+bV40PtHnCXpl6PnYcP6VGSsLK1LP3qEBYoaKXwrDdomKGgDcKzqdamWrsJz75j9BvUz+81MEX6MN2yIo6PvZz7+qleziYN563z4QC73X1owqpIhw2hAaijQBH1wL4JwBT9oAtfrESFVRRkp9SqGStAYaSor1iZClxKUx9SjFA1vFhBCnxqQm/7MUXT510VpCShC0oXZitKYcaAsk9hwhCvJU6YSW8KFKaeHJqeV6ZE0fTMEhAXuBIV56i3pFyBK1GPJlLdJfUipJsiuaaZ3uV6ZEoVi54lrlTFObKmQp1ImeLKVOibric2UZBSxaZ5ZtdTzC5dU644EnLKFUfCnsnhmRye6X0zFd1N99dNHXYbsubWbf+sv19/1V1zhAplbmRzdHJlYW0KZW5kb2JqCjEgMCBvYmoKPDwvVHlwZS9YT2JqZWN0L1N1YnR5cGUvRm9ybS9SZXNvdXJjZXM8PD4+L0JCb3hbMCAwIDMwOS42IDI0XS9Gb3JtVHlwZSAxL01hdHJpeCBbMSAwIDAgMSAwIDBdL0xlbmd0aCAzODIvRmlsdGVyL0ZsYXRlRGVjb2RlPj5zdHJlYW0KeJyNlUtyw0AIRPc+hU+gohvmd6Ak+9x/EUmeKs00m5SrbCGPoIEHsredn9+f1/WDo74Z79+vF4+4/jj6tOO8Wu0uNrib5eDmD+28XE/QxANjF1BFAa/jl6yP6bgj+Pk9b3xCPg+4hvQhoiI2l6FJFTt2UYV6Iu4Tj4rSj91phaion1I+TquGbSapNxcfTcvbNLWuDeyfsI+wLg0dd4zHw9Cgo4oH2M4MjJI8rIgTWFMyAGkcEFJ3JHxA2yPR1Qu10GCi1kXLhGjxO6FZngklF0HVG0ovYmgGCSaUlPfEaTlTJe/qMgeoTRU3pGnU5qLt3UdPWSak0HUroFeZBwxTJhJYmGSty0G2kWlsmvJM27vNxBUTV4TWlzdXq61ccW6mxcvkarnjO0VMy4lzOy3PxN5ZhihLTDF0Zlm0tiwp8mRqXbVpF9e9Z0xMsabYjVqFJlqaLkd23Y5MTLGL16FbmSPlONLrZuiGdHOZdTetsAtTbnOK/2l/v/4Av7dzOAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwvVHlwZS9QYWdlcy9Db3VudCAxL0tpZHNbNiAwIFJdPj4KZW5kb2JqCjcgMCBvYmoKPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDUgMCBSPj4KZW5kb2JqCjggMCBvYmoKPDwvUHJvZHVjZXIoaVRleHSuIDUuNS4xMy4zIKkyMDAwLTIwMjIgaVRleHQgR3JvdXAgTlYgXChBR1BMLXZlcnNpb25cKSkvQ3JlYXRpb25EYXRlKEQ6MjAyNjAyMTgxMzMwNDdaKS9Nb2REYXRlKEQ6MjAyNjAyMTgxMzMwNDdaKT4+CmVuZG9iagp4cmVmCjAgOQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDEwMTggMDAwMDAgbiAKMDAwMDAwMDQ4OCAwMDAwMCBuIAowMDAwMDAwNDAwIDAwMDAwIG4gCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMTU1OCAwMDAwMCBuIAowMDAwMDAwMjU2IDAwMDAwIG4gCjAwMDAwMDE2MDkgMDAwMDAgbiAKMDAwMDAwMTY1NCAwMDAwMCBuIAp0cmFpbGVyCjw8L1NpemUgOS9Sb290IDcgMCBSL0luZm8gOCAwIFIvSUQgWzxjMTY4MmNmOGVkODY4ZTRkM2MwNTYyNGQ0YmZhYTVmZj48YzE2ODJjZjhlZDg2OGU0ZDNjMDU2MjRkNGJmYWE1ZmY+XT4+CiVpVGV4dC01LjUuMTMuMwpzdGFydHhyZWYKMTgwMgolJUVPRgo=",
+        "fileType": "application/pdf"
+    });
+});
+
 // DELETE - Clear all patients
 app.delete(`${API_BASE}/admin/clear`, (req, res) => {
     db.run('DELETE FROM patients', [], function (err) {
@@ -557,7 +576,7 @@ app.get(`${API_BASE}/patients/:shipToId`, async (req, res) => {
 
     if (!ALLOWED_SORT_FIELDS.has(sortBy)) {
         return handleError(res, 400, "Invalid sortBy value. must be one of: firstName, lastName, patientId, team", "BAD_REQUEST",
-            [{field: 'sortBy', issue: 'must be one of: firstName, lastName, patientId, team'}]);
+            [{ field: 'sortBy', issue: 'must be one of: firstName, lastName, patientId, team' }]);
     }
 
     // Map sort field to DB column
