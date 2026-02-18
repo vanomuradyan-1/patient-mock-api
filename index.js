@@ -540,9 +540,11 @@ function rowToPatient(row) {
 
 // Validation Helpers
 const ALLOWED_SORT_FIELDS = new Set(['firstName', 'lastName', 'patientId', 'team']);
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // GET /api/patients/:shipToId (Search)
-app.get(`${API_BASE}/patients/:shipToId`, (req, res) => {
+app.get(`${API_BASE}/patients/:shipToId`, async (req, res) => {
+    await sleep(2000);
     const shipToId = req.params.shipToId;
     if (!shipToId) return handleError(res, 400, 'shipToId is required');
 
@@ -555,7 +557,7 @@ app.get(`${API_BASE}/patients/:shipToId`, (req, res) => {
 
     if (!ALLOWED_SORT_FIELDS.has(sortBy)) {
         return handleError(res, 400, "Invalid sortBy value. must be one of: firstName, lastName, patientId, team", "BAD_REQUEST",
-            [{ field: 'sortBy', issue: 'must be one of: firstName, lastName, patientId, team' }]);
+            [{field: 'sortBy', issue: 'must be one of: firstName, lastName, patientId, team'}]);
     }
 
     // Map sort field to DB column
@@ -581,13 +583,17 @@ app.get(`${API_BASE}/patients/:shipToId`, (req, res) => {
 
     const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
 
-    db.get(`SELECT COUNT(*) as cnt FROM patients ${whereClause}`, params, (err, countRow) => {
+    db.get(`SELECT COUNT(*) as cnt
+            FROM patients ${whereClause}`, params, (err, countRow) => {
         if (err) return handleError(res, 500, err.message || 'DB error');
         const totalRecords = countRow ? countRow.cnt : 0;
         const totalPages = Math.ceil(totalRecords / pageSize);
         const offset = (pageNo - 1) * pageSize;
 
-        const sql = `SELECT * FROM patients ${whereClause} ORDER BY ${dbSort} ${dbDir} LIMIT ? OFFSET ?`;
+        const sql = `SELECT *
+                     FROM patients ${whereClause}
+                     ORDER BY ${dbSort} ${dbDir} LIMIT ?
+                     OFFSET ?`;
         db.all(sql, [...params, pageSize, offset], (err2, rows) => {
             if (err2) return handleError(res, 500, err2.message || 'DB error');
             const patients = rows.map(rowToPatient);
