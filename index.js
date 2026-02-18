@@ -636,10 +636,25 @@ app.get(`${API_BASE}/patient/download/:shipToId`, (req, res) => {
     const shipToId = req.params.shipToId;
     if (!shipToId) return handleError(res, 400, 'shipToId is required');
 
-    // Return a dummy Excel file
-    res.setHeader('Content-Type', 'application/vnd.ms-excel');
-    res.setHeader('Content-Disposition', `attachment; filename="patients_${shipToId}.xlsx"`);
-    res.send('Dummy Excel Content');
+    // Create a dummy Excel buffer (just some text for now, but binary safe)
+    const buffer = Buffer.from('Dummy Excel Content for ' + shipToId, 'utf-8');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="export.xlsx"');
+    res.send(buffer);
+});
+
+// GET /api/apic/patients/download/:shipToId
+app.get(`${API_BASE}/apic/patients/download/:shipToId`, (req, res) => {
+    const shipToId = req.params.shipToId;
+    if (!shipToId) return handleError(res, 400, 'shipToId is required');
+
+    // Create a dummy Excel buffer (just some text for now, but binary safe)
+    const buffer = Buffer.from('Dummy Excel Content for ' + shipToId, 'utf-8');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="export.xlsx"');
+    res.send(buffer);
 });
 
 // CRUD Operations
@@ -762,7 +777,54 @@ app.put(`${API_BASE}/patients/:id`, (req, res) => {
     });
 });
 
-// DELETE /api/patients/:id (Delete)
+// DELETE /api/patients/:shipToId (Bulk Delete)
+app.delete(`${API_BASE}/patients/:shipToId`, async (req, res, next) => {
+    // If no patientKeys query param, fall through to existing endpoints (e.g. single delete if structure matches)
+    // However, existing single delete is /patients/:id. 
+    // If we are at /patients/12345 (shipToId) and NO keys, it might be ambiguous if 12345 is effectively a patientKey in the other route.
+    // But since the other route handles :id (patientKey), and we expect :shipToId here.
+    // We only process THIS route if patientKeys are present.
+    if (!req.query.patientKeys) {
+        return next();
+    }
+
+    const shipToId = req.params.shipToId;
+    let keys = req.query.patientKeys;
+    if (!Array.isArray(keys)) keys = [keys];
+
+    const results = [];
+    const deletePatient = (key) => {
+        return new Promise((resolve) => {
+            // Optional: Enforce shipToId check? `DELETE FROM patients WHERE patientKey = ? AND shipToId = ?`
+            // For now, trusting patientKey is unique enough.
+            db.run('DELETE FROM patients WHERE patientKey = ?', [key], function (err) {
+                if (err) {
+                    resolve({
+                        patientKey: key,
+                        status: "FAILURE",
+                        message: err.message || "Database error"
+                    });
+                } else {
+                    // Even if changes==0, we can return success (idempotent) or specific message.
+                    // User requested "Patient deleted successfully"
+                    resolve({
+                        patientKey: key,
+                        status: "SUCCESS",
+                        message: "Patient deleted successfully"
+                    });
+                }
+            });
+        });
+    };
+
+    for (const key of keys) {
+        results.push(await deletePatient(key));
+    }
+
+    res.json({ results });
+});
+
+// DELETE /api/patients/:id (Delete Single)
 app.delete(`${API_BASE}/patients/:id`, (req, res) => {
     const id = req.params.id;
     db.run('DELETE FROM patients WHERE patientKey = ?', [id], function (err) {

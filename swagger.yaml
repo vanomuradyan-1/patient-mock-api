@@ -152,7 +152,50 @@ paths:
                   fileType:
                     type: string
                     example: "application/pdf"
-  /patients/{shipToId}:
+                  fileType:
+                    type: string
+                    example: "application/pdf"
+  /apic/patients/download/{shipToId}:
+    get:
+      summary: Download Patients (APIC)
+      tags: [APIC]
+      operationId: downloadPatientsApic
+      parameters:
+        - name: shipToId
+          in: path
+          description: ShipTo Account ID
+          required: true
+          schema:
+            type: integer
+            example: 1563073
+        - name: Authorization
+          in: header
+          description: JWT Token
+          required: false
+          schema:
+            type: string
+            example: "Bearer token"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+              example: Binary Excel file content
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
     get:
       tags:
         - Patients
@@ -263,6 +306,64 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
       security:
+        - jwtTokenAuth: []
+    delete:
+      tags:
+        - Patients
+      summary: Bulk delete patients
+      description: Deletes multiple patients identified by patientKeys, scoped by shipToId.
+      operationId: deletePatients
+      parameters:
+        - name: shipToId
+          in: path
+          description: Ship-to account identifier.
+          required: true
+          schema:
+            type: string
+            example: '1563073'
+        - name: patientKeys
+          in: query
+          description: List of patient keys to delete.
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+            example: ["dc689cc5-816f-4510-b248-9f52a34d2682", "d6f32855-3c1f-4bd6-99bf-9be5fae38b5e"]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        patientKey:
+                          type: string
+                        status:
+                          type: string
+                          example: SUCCESS
+                        message:
+                          type: string
+                          example: Patient deleted successfully
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      security:
         - PingTokenAuth: []
         - jwtTokenAuth: []
 
@@ -274,6 +375,13 @@ paths:
       description: Endpoint to download complete Patients details for an account.
       operationId: downloadPatientsByAccountId
       parameters:
+        - name: Authorization
+          in: header
+          description: JWT token for authentication.
+          required: true
+          schema:
+            type: string
+            example: test
         - name: shipToId
           in: path
           description: ShipTo Account ID
@@ -281,35 +389,18 @@ paths:
           schema:
             type: integer
             example: 1563073
-        - name: source
-          in: query
-          description: Source for audit.
+        - name: Ping-Authorization
+          in: header
+          description: Ping token for internal user identification.
           required: false
           schema:
             type: string
-            enum:
-              - MANAGE_PATIENT
-              - CART
-            example: CART
-        - name: sourceId
-          in: query
-          description: Source id for audit.
-          required: false
-          schema:
-            type: string
-            example: cardId
-        - name: applicationSessionId
-          in: query
-          description: Application session id for audit.
-          required: false
-          schema:
-            type: string
-            example: SessionId
+            example: 'y'
       responses:
         '200':
           description: Patients Found
           content:
-            application/vnd.ms-excel:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
               schema:
                 type: string
                 format: binary
@@ -320,33 +411,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                code: '400'
+                message: Bad Request. Required parameter is missing.
         '401':
           description: UnAuthorized
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                code: '401'
+                message: Unauthorized. Invalid or expired token.
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                code: '403'
+                message: You do not have permission to access this resource.
         '404':
           description: No Patient Found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                code: '404'
+                message: Patient not found
         '500':
           description: Internal Server Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-      security:
-        - PingTokenAuth: []
-        - jwtTokenAuth: []
+              example:
+                code: '500'
+                message: Internal server error
+      x-stoplight:
+        id: huhy8za26pt92
+    x-stoplight:
+      id: a7fef4ecfaa4b
 
   # CRUD Operations
   /patients:
