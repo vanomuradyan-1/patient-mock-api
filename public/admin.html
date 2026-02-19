@@ -209,6 +209,15 @@
             <div id="generateMessage" class="message"></div>
         </div>
 
+        <div class="section">
+            <h2>🍪 Cookie Utilities</h2>
+            <div>
+                <button style="margin-bottom: 16px" class="btn-primary" onclick="setCookies()">Set Cookies</button>
+                <button class="btn-danger" onclick="clearCookies()">Clear Cookies</button>
+            </div>
+            <div id="cookieMessage" class="message"></div>
+        </div>
+
         <div class="links">
             <a href="/api-docs">📖 API Docs</a>
             <a href="/api/patients">📊 View Patients</a>
@@ -281,6 +290,30 @@
                 btn.disabled = false;
                 btn.textContent = 'Generate Patients';
             }
+        }
+
+        function setCookies() {
+            document.cookie = "local_header_cookie=%7B%22logged_in_user%22%3A%22true%22%2C%22access_token%22%3A%220001epO8hzld4ysKuWi7u2dtaF3dN3lvOXS8jR3y1L%22%2C%22refresh_token%22%3A%220V6HwDhFR3rVuQjlaFkkVIjHtwOx5vWIUv0LyI4oUG%22%2C%22token_type%22%3A%22Bearer%22%2C%22session_buff_end%22%3A%22Wed+Feb+11+2026+05%3A13%3A18+GMT-0600+%28Central+Standard+Time%29%22%2C%22profile_session_time%22%3A480%2C%22session_renewal%22%3A%221770833298158%22%7D;path=/";
+            document.cookie = "commerceBehavior=%7B%22ls%22%3A%22200%22%2C%22m%22%3A%22hospital%22%2C%22sa%22%3A1%7D;expires=Sat, 28 Feb 2026 06:46:53 GMT;path=/";
+            document.cookie = "s_shid=1483051;path=/";
+            document.cookie = "accessToken=eyJraWQiOiJKVmFPb2hGMTBqbldMVmdIeXR4YU9INHdBSjEzd2xqNkVHXy1CYklESUM4IiwiYWxnIjoiUlMyNTYifQ.eyJpYXQiOjE3NzEzOTcxMTAsInN1YiI6IjExMzY5ODA1NjMwIiwicHJpdmlsZWdlcyI6IlZpZXdJdGVtRm9ybXVsYXJ5RmxhZyxFZGl0UGF0aWVudCxDdXN0b21lclNlbGZBZG1pblZpZXcsRGlzcGxheVNoaXBtZW50Tm90aWZpY2F0aW9uLHZpZXdCYWNrT3JkZXJlZEl0ZW1zLENyZWF0ZU9yZGVyLFZpZXdOb25Gb...nVzZXJ0eXBlIjoiQ3VzdG9tZXIiLCJhY3RpdmUiOnRydWUsImludGVybmFsQXV0aGVudGljYXRpb24iOmZhbHNlLCJmYW1pbHlOYW1lIjoiVXNlciAwMSIsInNjb3BlIjoib3BlbmlkIiwibmFtZSI6IlRlc3QgSG9tZUhlYWx0aCAxIiwic2Vzc2lvblRpbWVvdXQiOjQ4MCwidG9rZW5UeXBlIjoiQmVhcmVyIiwiZXhwIjoxNzcxNDAwNzA5LCJlbWFpbCI6Imtnb3ZseHdkQG1lZGxpbmUuY29tIiwicmVwQWNjb3VudE51bWJlciI6IiIsInVzZXJuYW1lIjoiQVVUT19ISF9SVyJ9.KSDSgjue6Kpdw1EQhe2YoyMJJvpWKfEV7lLdayFeBdKB4qwgU1yVV6BsUuUhdRU1rAm7UuzdAjVDZXrwOGomD8pUtEZbgQMNCtTe07QAiWpe26JAzFhi8HKDyEZEDoGJxRFZlviFHPIxP5QDA68shIUzHolm53tI2EWweGyAqQqCOlDh_-dRxiW3cLKiKnE9gZ9cWdRluljdbEQ971UiOVCpWLMuZIbfQ0D9TiogfbA2OPbfEyM0uXN-jm6o0PZrjJhvObcvkgJEelXZM9U3xR8_buFU8C6NAFZ9eJ5c0G5zQuh3J36g_tG4YNb_9DF_iJ-kS1QVnza81farSAh1Kg;path=/";
+            document.cookie = "ecom_client_state=\"eyJwbGF0Zm9ybUVuYWJsZWQiOiJ0cnVlIiwic2FsZXNPZmZpY2UiOiJIQyIsImN1c3RvbWVyR3JvdXAiOiJISCIsImRlZmF1bHRfb3JnX2lkIjoiMjQ1NjczIiwiY3VycmVudF9zb2xkX3RvIjoiMTQ4MzA1MSIsImN1cnJlbnRfc2hpcF90byI6IjE0ODMwNTEiLCJwaGRPcmRlcmluZ0VuYWJsZWQiOiJ0cnVlIn0=\";path=/";
+            showMessage('cookieMessage', '✓ Cookies have been set.', true);
+        }
+
+        function clearCookies() {
+            const cookies = [
+                'local_header_cookie',
+                'commerceBehavior',
+                's_shid',
+                'accessToken',
+                'ecom_client_state',
+                'dev_header_cookie'
+            ];
+            cookies.forEach(name => {
+                document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+            });
+            showMessage('cookieMessage', '✓ Cookies have been cleared.', true);
         }
     </script>
 </body>
