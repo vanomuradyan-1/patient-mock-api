@@ -477,6 +477,7 @@ app.post(`${API_BASE}/admin/generate`, (req, res) => {
         }
 
         const patientKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : randomUUID();
+        const guid = patientKey.replace(/-/g, '').toUpperCase();
         const patientId = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
         const firstName = randomItem(firstNames);
         const lastName = randomItem(lastNames);
@@ -492,9 +493,10 @@ app.post(`${API_BASE}/admin/generate`, (req, res) => {
             updatedBy: 'admin-generator'
         };
 
-        const sql = `INSERT INTO patients (patientKey, patientId, shipToId, firstName, lastName, dateOfBirth, teamName, primaryPayer, metadata) VALUES (?,?,?,?,?,?,?,?,?)`;
+        const sql = `INSERT INTO patients (patientKey, guid, patientId, shipToId, firstName, lastName, dateOfBirth, teamName, primaryPayer, metadata) VALUES (?,?,?,?,?,?,?,?,?,?)`;
         const params = [
             patientKey,
+            guid,
             patientId,
             shipToId,
             firstName,
@@ -522,6 +524,7 @@ db.run("DROP TABLE IF EXISTS patients", [], (err) => {
         db.run(`
           CREATE TABLE IF NOT EXISTS patients (
             patientKey TEXT PRIMARY KEY,
+            guid TEXT,
             patientId TEXT,
             shipToId TEXT,
             firstName TEXT,
@@ -548,6 +551,7 @@ function rowToPatient(row) {
     if (!row) return null;
     return {
         patientKey: row.patientKey,
+        guid: row.guid,
         patientId: row.patientId,
         firstName: row.firstName,
         lastName: row.lastName,
@@ -558,7 +562,7 @@ function rowToPatient(row) {
 }
 
 // Validation Helpers
-const ALLOWED_SORT_FIELDS = new Set(['firstName', 'lastName', 'patientId', 'team']);
+const ALLOWED_SORT_FIELDS = new Set(['FIRST_NAME', 'LAST_NAME', 'PATIENT_ID', 'TEAM']);
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // GET /api/patients/:shipToId (Search)
@@ -571,21 +575,21 @@ app.get(`${API_BASE}/patients/:shipToId`, async (req, res) => {
     const pageNo = Math.max(1, Number(req.query.pageNo) || 1);
     const pageSize = Math.max(1, Math.min(25, Number(req.query.pageSize) || 25)); // Spec max 25
 
-    const sortBy = req.query.sortBy || 'firstName';
-    const sortDir = (req.query.sortDir || 'asc').toLowerCase();
+    const sortBy = req.query.sortBy || 'FIRST_NAME';
+    const sortDir = (req.query.sortDir || 'ASC').toUpperCase();
 
     if (!ALLOWED_SORT_FIELDS.has(sortBy)) {
-        return handleError(res, 400, "Invalid sortBy value. must be one of: firstName, lastName, patientId, team", "BAD_REQUEST",
-            [{ field: 'sortBy', issue: 'must be one of: firstName, lastName, patientId, team' }]);
+        return handleError(res, 400, "Invalid sortBy value. must be one of: FIRST_NAME, LAST_NAME, PATIENT_ID, TEAM", "BAD_REQUEST",
+            [{ field: 'sortBy', issue: 'must be one of: FIRST_NAME, LAST_NAME, PATIENT_ID, TEAM' }]);
     }
 
     // Map sort field to DB column
     let dbSort = 'firstName';
-    if (sortBy === 'lastName') dbSort = 'lastName';
-    if (sortBy === 'patientId') dbSort = 'patientId';
-    if (sortBy === 'team') dbSort = 'teamName';
+    if (sortBy === 'LAST_NAME') dbSort = 'lastName';
+    if (sortBy === 'PATIENT_ID') dbSort = 'patientId';
+    if (sortBy === 'TEAM') dbSort = 'teamName';
 
-    const dbDir = sortDir === 'desc' ? 'DESC' : 'ASC';
+    const dbDir = sortDir === 'DESC' ? 'DESC' : 'ASC';
 
 
     const where = [];
@@ -619,12 +623,10 @@ app.get(`${API_BASE}/patients/:shipToId`, async (req, res) => {
 
             res.json({
                 soldTo: req.query.soldTo || '1563073', // Mock value or from query
-                pagination: {
-                    pageNo,
-                    pageSize,
-                    totalRecords,
-                    totalPages
-                },
+                pageNo,
+                pageSize,
+                totalRecords,
+                totalPages,
                 patients
             });
         });
@@ -688,12 +690,10 @@ app.get(`${API_BASE}/patients`, (req, res) => {
             const patients = rows.map(rowToPatient);
             res.json({
                 soldTo: req.query.soldTo || 'ALL', // default for global list
-                pagination: {
-                    pageNo,
-                    pageSize,
-                    totalRecords,
-                    totalPages
-                },
+                pageNo,
+                pageSize,
+                totalRecords,
+                totalPages,
                 patients
             });
         });
@@ -719,13 +719,15 @@ app.post(`${API_BASE}/patients`, (req, res) => {
     }
 
     const patientKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : randomUUID();
+    const guid = patientKey.replace(/-/g, '').toUpperCase();
     const createdAt = new Date().toISOString();
     const metadata = { createdAt, createdBy: 'api' };
     const shipToId = body.shipToId || 'DEFAULT'; // CRUD needs shipToId to be visible in search
 
-    const sql = `INSERT INTO patients (patientKey, patientId, shipToId, firstName, lastName, dateOfBirth, teamName, primaryPayer, metadata) VALUES (?,?,?,?,?,?,?,?,?)`;
+    const sql = `INSERT INTO patients (patientKey, guid, patientId, shipToId, firstName, lastName, dateOfBirth, teamName, primaryPayer, metadata) VALUES (?,?,?,?,?,?,?,?,?,?)`;
     const params = [
         patientKey,
+        guid,
         body.patientId,
         shipToId,
         body.firstName,

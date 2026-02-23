@@ -196,6 +196,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /patients/{shipToId}:
     get:
       tags:
         - Patients
@@ -212,6 +213,9 @@ paths:
             type: string
             minLength: 1
             example: '1563073'
+          examples:
+            default:
+              value: '1563073'
         - name: q
           in: query
           description: 'Free-text search across first name, last name, patientId, and team name.'
@@ -220,20 +224,29 @@ paths:
             type: string
             maxLength: 200
             example: robert
+          examples:
+            default:
+              value: robert
         - name: sortBy
           in: query
           description: Sort field.
           required: false
           schema:
             $ref: '#/components/schemas/PatientSortBy'
-            example: firstName
+            example: FIRST_NAME
+          examples:
+            default:
+              value: FIRST_NAME
         - name: sortDir
           in: query
           description: Sort direction.
           required: false
           schema:
             $ref: '#/components/schemas/SortDirection'
-            example: asc
+            example: ASC
+          examples:
+            default:
+              value: ASC
         - name: pageNo
           in: query
           description: 1-based page index.
@@ -243,6 +256,9 @@ paths:
             minimum: 1
             default: 1
             example: 1
+          examples:
+            default:
+              value: 1
         - name: pageSize
           in: query
           description: Number of records per page.
@@ -253,27 +269,9 @@ paths:
             maximum: 25
             default: 25
             example: 25
-        - name: source
-          in: query
-          description: source For audit
-          schema:
-            type: string
-            enum:
-              - MANAGE_PATIENT
-              - CART
-            example: CART
-        - name: sourceId
-          in: query
-          description: sourceId for Audit
-          schema:
-            type: string
-            example: cardId
-        - name: applicationSessionId
-          in: query
-          description: Application session id for Audit
-          schema:
-            type: string
-            example: SessionId
+          examples:
+            default:
+              value: 25
       responses:
         '200':
           description: Paged patient search results
@@ -281,32 +279,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatientSearchResponse'
+              examples:
+                Example 1:
+                  value:
+                    soldTo: '1563073'
+                    pageNo: 1
+                    pageSize: 1
+                    totalRecords: 0
+                    totalPages: 0
+                    patients:
+                      - patientKey: pt-8f2c0b5d
+                        guid: CA9DC328846D4F43AECD39B4B18A1A75
+                        patientId: '00000000'
+                        firstName: Robert
+                        lastName: Baratheon
+                        dateOfBirth: '1970-01-01'
+                        teamName: Team Name
+                        primaryPayer:
+                          payerType: Agency
+                          payerDisplayName: Medicare
         '400':
           description: 'Invalid request (e.g., invalid sortBy, pageSize too large)'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              examples:
+                badRequest:
+                  value:
+                    code: bad_request
+                    message: Invalid sortBy value.
+                    correlationId: c7e8b8c0b2c2451b
+                    details:
+                      - field: sortBy
+                        issue: 'must be one of: PatientName, PatientId, LastOrderDate, LastOrderStatus, PrimaryPayer, Team, Priority'
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              examples:
+                Example 1:
+                  value:
+                    code: bad_request
+                    message: Invalid request.
+                    correlationId: c7e8b8c0b2c2451b
+                    details:
+                      - field: sortBy
+                        issue: 'must be one of: PatientName, PatientId, LastOrderDate'
         '403':
           description: Forbidden (no access to shipToId/account scope)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              examples:
+                Example 1:
+                  value:
+                    code: bad_request
+                    message: Invalid request.
+                    correlationId: c7e8b8c0b2c2451b
+                    details:
+                      - field: sortBy
+                        issue: 'must be one of: PatientName, PatientId, LastOrderDate'
         '500':
           description: Server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              examples:
+                Example 1:
+                  value:
+                    code: Internal_Server_Error
+                    message: Invalid request.
+                    correlationId: c7e8b8c0b2c2451b
+                    details:
+                      - field: sortBy
+                        issue: 'must be one of: PatientName, PatientId, LastOrderDate'
       security:
-        - jwtTokenAuth: []
+        - PingTokenAuth: [ ]
+        - jwtTokenAuth: [ ]
     delete:
       tags:
         - Patients
@@ -571,18 +625,18 @@ components:
     PatientSortBy:
       type: string
       enum:
-        - firstName
-        - lastName
-        - patientId
-        - team
-      example: firstName
+        - FIRST_NAME
+        - LAST_NAME
+        - PATIENT_ID
+        - TEAM
+      example: FIRST_NAME
     SortDirection:
       type: string
       enum:
-        - asc
-        - desc
-      default: asc
-      example: asc
+        - ASC
+        - DESC
+      default: ASC
+      example: ASC
     Pagination:
       type: object
       description: Pagination metadata for paginated responses
@@ -619,16 +673,56 @@ components:
         soldTo:
           type: string
           description: Sold-to account identifier.
-        pagination:
-          $ref: '#/components/schemas/Pagination'
+        pageNo:
+          type: integer
+          description: Current page number (1-based)
+          minimum: 1
+          example: 1
+        pageSize:
+          type: integer
+          description: Number of items per page
+          minimum: 1
+          maximum: 200
+          example: 25
+        totalRecords:
+          type: integer
+          description: Total number of matching records across all pages
+          minimum: 0
+          example: 100
+        totalPages:
+          type: integer
+          description: Total number of pages based on totalRecords and pageSize
+          minimum: 0
+          example: 4
         patients:
           type: array
           items:
             $ref: '#/components/schemas/Patient'
       required:
         - soldTo
-        - pagination
+        - pageNo
+        - pageSize
+        - totalRecords
+        - totalPages
         - patients
+      x-examples:
+        Example 1:
+          soldTo: '1563073'
+          pageNo: 1
+          pageSize: 25
+          totalRecords: 100
+          totalPages: 4
+          patients:
+            - patientKey: pt-8f2c0b5d
+              guid: CA9DC328846D4F43AECD39B4B18A1A75
+              patientId: '00000000'
+              firstName: Robert
+              lastName: Baratheon
+              dateOfBirth: '1970-01-01'
+              teamName: Team Name
+              primaryPayer:
+                payerType: Agency
+                payerDisplayName: Medicare
     Patient:
       type: object
       properties:
@@ -636,6 +730,10 @@ components:
           type: string
           description: Internal unique identifier (UUID/string).
           example: pt-8f2c0b5d
+        guid:
+          type: string
+          description: Global unique identifier for the patient.
+          example: CA9DC328846D4F43AECD39B4B18A1A75
         patientId:
           type: string
           description: Display patient identifier if available.
@@ -658,6 +756,7 @@ components:
           $ref: '#/components/schemas/PayerRef'
       required:
         - patientKey
+        - guid
         - firstName
         - lastName
         - patientId
