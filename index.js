@@ -89,6 +89,13 @@ db.run(`
   )
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS preferences (
+    soldToId TEXT PRIMARY KEY,
+    data TEXT NOT NULL
+  )
+`);
+
 // SWAGGER DOCS
 const swaggerDocument = YAML.load('./swagger.yaml');
 const swaggerOptions = {
@@ -506,6 +513,230 @@ app.get(`${API_BASE}/hha-management/get-data`, (req, res) => {
             ]
         }
     });
+});
+
+const defaultPreferences = {
+    "routingAndBehavior": {
+        "rejectedOrderAction": "CONVERT_TO_STANDARD_AND_INVOICE",
+        "orderCanceledNotifications": false
+    },
+    "dmeSupplierPreferences": {
+        "setPreferencesEnabled": false,
+        "coverageBanner": {
+            "state": "CA",
+            "payerNames": [],
+            "planTypes": []
+        },
+        "preferredDmeSupplierList": [],
+        "nonPreferredDmeSupplierList": []
+    }
+};
+
+const fullGeneratedPreferences = {
+    "routingAndBehavior": {
+        "rejectedOrderAction": "CONVERT_TO_STANDARD_AND_INVOICE",
+        "orderCanceledNotifications": true
+    },
+    "dmeSupplierPreferences": {
+        "setPreferencesEnabled": true,
+        "coverageBanner": {
+            "state": "CA",
+            "payerNames": [
+                "Aetna",
+                "United Health Care",
+                "Payer Name 1",
+                "Payer Name 2",
+                "Payer Name 3"
+            ],
+            "planTypes": [
+                "Medical Advantage",
+                "Medicaid"
+            ]
+        },
+        "preferredDmeSupplierList": [
+            {
+                "id": 155,
+                "dmeName": "Zest Health",
+                "dmeUrl": "https://adapthealth.com",
+                "isExcluded": true,
+                "isNew": true,
+                "rank": 1,
+                "coverageLabel": "High Payer Coverage",
+                "coverage": 80
+            },
+            {
+                "id": 212,
+                "dmeName": "ABC Medical Supplies",
+                "dmeUrl": "https://abcmedicalsupplies.com",
+                "isExcluded": false,
+                "isNew": false,
+                "rank": 2,
+                "coverageLabel": "Moderate Payer Coverage",
+                "coverage": 50
+            }
+        ],
+        "nonPreferredDmeSupplierList": [
+            {
+                "id": 213,
+                "dmeName": "ABC Medical Supplies",
+                "dmeUrl": "https://abcmedicalsupplies.com",
+                "isExcluded": false,
+                "isNew": false,
+                "rank": null,
+                "coverageLabel": "Moderate Payer Coverage",
+                "coverage": 50
+            },
+            {
+                "id": 214,
+                "dmeName": "DEF Medical Supplies",
+                "dmeUrl": "https://abcmedicalsupplies.com",
+                "isExcluded": false,
+                "isNew": false,
+                "rank": null,
+                "coverageLabel": "Moderate Payer Coverage",
+                "coverage": 50
+            }
+        ]
+    }
+};
+
+// GET - Preferences
+app.get(`${API_BASE}/preferences`, (req, res) => {
+    // Ensure browsers/Swagger DO NOT cache the GET response
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    const soldToId = req.query.soldToId;
+    if (!soldToId) {
+        return handleError(res, 400, "soldToId is required");
+    }
+
+    db.get('SELECT data FROM preferences WHERE soldToId = ?', [soldToId], (err, row) => {
+        if (err) return handleError(res, 500, err.message || 'DB error');
+        if (row) {
+            return res.json(JSON.parse(row.data));
+        }
+
+        // Fallback to 'global' if specific soldToId isn't found
+        db.get('SELECT data FROM preferences WHERE soldToId = ?', ['global'], (err2, row2) => {
+            if (err2) return handleError(res, 500, err2.message || 'DB error');
+            if (row2) {
+                return res.json(JSON.parse(row2.data));
+            }
+            // Return default if neither exists
+            return res.json(defaultPreferences);
+        });
+    });
+});
+
+// PUT - Preferences
+app.put(`${API_BASE}/preferences`, (req, res) => {
+    const soldToId = req.query.soldToId;
+    if (!soldToId) {
+        return handleError(res, 400, "soldToId is required");
+    }
+
+    const payload = req.body;
+
+    const applyUpdate = (basePrefs) => {
+        let currentPrefs = JSON.parse(JSON.stringify(basePrefs));
+
+        if (payload.routingAndBehavior) {
+            currentPrefs.routingAndBehavior = {
+                ...currentPrefs.routingAndBehavior,
+                ...payload.routingAndBehavior
+            };
+        }
+
+        if (payload.dmeSupplierPreferences) {
+            if (payload.dmeSupplierPreferences.setPreferencesEnabled !== undefined) {
+                currentPrefs.dmeSupplierPreferences.setPreferencesEnabled = payload.dmeSupplierPreferences.setPreferencesEnabled;
+            }
+
+            const allSuppliers = [
+                ...(fullGeneratedPreferences.dmeSupplierPreferences.preferredDmeSupplierList || []),
+                ...(fullGeneratedPreferences.dmeSupplierPreferences.nonPreferredDmeSupplierList || [])
+            ];
+
+            if (payload.dmeSupplierPreferences.preferredDmeSupplierList) {
+                currentPrefs.dmeSupplierPreferences.preferredDmeSupplierList = payload.dmeSupplierPreferences.preferredDmeSupplierList.map(incoming => {
+                    const existing = allSuppliers.find(s => s.id === incoming.id) || {};
+                    return { ...existing, ...incoming };
+                });
+            }
+
+            if (payload.dmeSupplierPreferences.nonPreferredDmeSupplierList) {
+                currentPrefs.dmeSupplierPreferences.nonPreferredDmeSupplierList = payload.dmeSupplierPreferences.nonPreferredDmeSupplierList.map(incoming => {
+                    const existing = allSuppliers.find(s => s.id === incoming.id) || {};
+                    return { ...existing, ...incoming };
+                });
+            }
+        }
+
+        const jsonStr = JSON.stringify(currentPrefs);
+
+        // Upsert into DB
+        db.run('INSERT OR REPLACE INTO preferences (soldToId, data) VALUES (?, ?)',
+            [soldToId, jsonStr],
+            function (upsertErr) {
+                if (upsertErr) return handleError(res, 500, upsertErr.message || 'DB error');
+                res.json(payload);
+            });
+    };
+
+    // Fetch current state to merge
+    db.get('SELECT data FROM preferences WHERE soldToId = ?', [soldToId], (err, row) => {
+        if (err) return handleError(res, 500, err.message || 'DB error');
+
+        if (row) {
+            applyUpdate(JSON.parse(row.data));
+        } else {
+            // fallback to global to avoid resetting to empty defaults if a specific ID is updated first
+            db.get('SELECT data FROM preferences WHERE soldToId = ?', ['global'], (err2, row2) => {
+                let basePrefs = row2 ? JSON.parse(row2.data) : defaultPreferences;
+                applyUpdate(basePrefs);
+            });
+        }
+    });
+});
+
+// Admin POST - Generate HHA Data
+app.post(`${API_BASE}/admin/generate-hha`, (req, res) => {
+    const soldToId = req.query.soldToId || req.body.soldToId;
+    if (!soldToId) {
+        return handleError(res, 400, "soldToId is required");
+    }
+
+    const jsonStr = JSON.stringify(fullGeneratedPreferences);
+    db.run('INSERT INTO preferences (soldToId, data) VALUES (?, ?) ON CONFLICT(soldToId) DO UPDATE SET data = ?',
+        [soldToId, jsonStr, jsonStr],
+        function (err) {
+            if (err) return handleError(res, 500, err.message || 'DB error');
+            res.json({
+                success: true,
+                message: `HHA data generated for soldToId: ${soldToId}`
+            });
+        });
+});
+
+// Admin POST - Reset HHA Data
+app.post(`${API_BASE}/admin/reset-hha`, (req, res) => {
+    const soldToId = req.query.soldToId || req.body.soldToId;
+    if (!soldToId) {
+        return handleError(res, 400, "soldToId is required");
+    }
+
+    const jsonStr = JSON.stringify(defaultPreferences);
+    db.run('INSERT INTO preferences (soldToId, data) VALUES (?, ?) ON CONFLICT(soldToId) DO UPDATE SET data = ?',
+        [soldToId, jsonStr, jsonStr],
+        function (err) {
+            if (err) return handleError(res, 500, err.message || 'DB error');
+            res.json({
+                success: true,
+                message: `HHA data reset for soldToId: ${soldToId}`
+            });
+        });
 });
 
 // POST - Generate mock patients

@@ -673,6 +673,119 @@ paths:
                       coverageLabel: Moderate Payer Coverage
                       coverage: 50
 
+  /preferences:
+    get:
+      summary: Get preferences
+      tags: ["HHA management"]
+      operationId: getPreferences
+      parameters:
+        - name: soldToId
+          in: query
+          required: true
+          schema:
+            type: string
+            default: "12345678"
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                routingAndBehavior:
+                  rejectedOrderAction: CONVERT_TO_STANDARD_AND_INVOICE
+                  orderCanceledNotifications: true
+                dmeSupplierPreferences:
+                  setPreferencesEnabled: true
+                  coverageBanner:
+                    state: CA
+                    payerNames: ["Aetna", "United Health Care", "Payer Name 1", "Payer Name 2", "Payer Name 3"]
+                    planTypes: ["Medical Advantage", "Medicaid"]
+                  preferredDmeSupplierList:
+                    - id: 155
+                      dmeName: Zest Health
+                      dmeUrl: https://adapthealth.com
+                      isExcluded: true
+                      isNew: true
+                      rank: 1
+                      coverageLabel: High Payer Coverage
+                      coverage: 80
+                    - id: 212
+                      dmeName: ABC Medical Supplies
+                      dmeUrl: https://abcmedicalsupplies.com
+                      isExcluded: false
+                      isNew: false
+                      rank: 2
+                      coverageLabel: Moderate Payer Coverage
+                      coverage: 50
+                  nonPreferredDmeSupplierList:
+                    - id: 213
+                      dmeName: ABC Medical Supplies
+                      dmeUrl: https://abcmedicalsupplies.com
+                      isExcluded: false
+                      isNew: false
+                      rank: null
+                      coverageLabel: Moderate Payer Coverage
+                      coverage: 50
+                    - id: 214
+                      dmeName: DEF Medical Supplies
+                      dmeUrl: https://abcmedicalsupplies.com
+                      isExcluded: false
+                      isNew: false
+                      rank: null
+                      coverageLabel: Moderate Payer Coverage
+                      coverage: 50
+    put:
+      summary: Update preferences
+      tags: ["HHA management"]
+      operationId: updatePreferences
+      parameters:
+        - name: soldToId
+          in: query
+          required: true
+          schema:
+            type: string
+            default: "12345678"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              routingAndBehavior:
+                rejectedOrderAction: CONVERT_TO_STANDARD_AND_INVOICE
+                orderCanceledNotifications: true
+              dmeSupplierPreferences:
+                setPreferencesEnabled: true
+                preferredDmeSupplierList:
+                  - id: 155
+                    isExcluded: true
+                    rank: 1
+                  - id: 212
+                    isExcluded: false
+                    rank: 2
+                nonPreferredDmeSupplierList:
+                  - id: 213
+                    isExcluded: false
+                    rank: null
+                  - id: 214
+                    isExcluded: false
+                    rank: null
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+
 components:
   securitySchemes:
     PingTokenAuth:
