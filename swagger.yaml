@@ -3,7 +3,7 @@ x-stoplight:
   id: ck02vd3fmtbpo
 info:
   version: v1
-  title: PatientManagement
+  title: Mock API
   description: APIs for searching and managing patients for eCom.
   contact:
     name: Bird Of Pray Squad
@@ -18,8 +18,8 @@ servers:
   - url: 'https://apic.medline.com/ecom/ecom/insurecare/patient/v2'
     description: Production Environment
 tags:
-  - name: Patients
-    description: Patient search and management
+  - name: Patient Management
+    description: Patient Management
   - name: APIC
     description: APIC Token Generation
 paths:
@@ -199,7 +199,7 @@ paths:
   /patients/{shipToId}:
     get:
       tags:
-        - Patients
+        - Patient Management
       summary: Search patients by ship-to account
       description: |
         Returns a paginated list of patients scoped to a ship-to account. Supports free-text search, filtering, sorting, and pagination.
@@ -363,7 +363,7 @@ paths:
         - jwtTokenAuth: [ ]
     delete:
       tags:
-        - Patients
+        - Patient Management
       summary: Bulk delete patients
       description: Deletes multiple patients identified by patientKeys, scoped by shipToId.
       operationId: deletePatients
@@ -424,7 +424,7 @@ paths:
   /patient/download/{shipToId}:
     get:
       tags:
-        - Patients
+        - Patient Management
       summary: Download Patients
       description: Endpoint to download complete Patients details for an account.
       operationId: downloadPatientsByAccountId
@@ -513,7 +513,7 @@ paths:
   /patients:
     get:
       summary: List Patients
-      tags: [Patients]
+      tags: ["Patient Management"]
       parameters:
         - in: query
           name: q
@@ -533,7 +533,7 @@ paths:
                 $ref: '#/components/schemas/PatientSearchResponse'
     post:
       summary: Create Patient
-      tags: [Patients]
+      tags: ["Patient Management"]
       requestBody:
         required: true
         content:
@@ -557,7 +557,7 @@ paths:
   /patients/{id}:
     get:
       summary: Get Patient by ID
-      tags: [Patients]
+      tags: ["Patient Management"]
       parameters:
         - in: path
           name: id
@@ -578,7 +578,7 @@ paths:
                 $ref: '#/components/schemas/ApiError'
     put:
       summary: Update Patient
-      tags: [Patients]
+      tags: ["Patient Management"]
       parameters:
         - in: path
           name: id
@@ -599,7 +599,7 @@ paths:
                 $ref: '#/components/schemas/Patient'
     delete:
       summary: Delete Patient
-      tags: [Patients]
+      tags: ["Patient Management"]
       parameters:
         - in: path
           name: id
@@ -608,6 +608,70 @@ paths:
       responses:
         '204':
           description: Deleted
+
+  /hha-management/get-data:
+    get:
+      summary: Get HHA management data
+      tags: ["HHA management"]
+      operationId: getHhaData
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                routingAndBehavior:
+                  rejectedOrderAction: CONVERT_TO_STANDARD_AND_INVOICE
+                  orderCanceledNotifications: true
+                dmeSupplierPreferences:
+                  setPreferencesEnabled: true
+                  coverageBanner:
+                    state: CA
+                    payerNames: []
+                    planTypes: []
+                  dmeSupplierList:
+                    - id: 155
+                      dmeName: Zest Health
+                      dmeUrl: https://adapthealth.com
+                      isExcluded: true
+                      isNew: true
+                      rank: 1
+                      coverageLabel: High Payer Coverage
+                      coverage: 80
+                    - id: 212
+                      dmeName: ABC Medical Supplies
+                      dmeUrl: https://abcmedicalsupplies.com
+                      isExcluded: false
+                      isNew: false
+                      rank: 2
+                      coverageLabel: Moderate Payer Coverage
+                      coverage: 50
+                    - id: 213
+                      dmeName: ABC Medical Supplies
+                      dmeUrl: https://abcmedicalsupplies.com
+                      isExcluded: false
+                      isNew: false
+                      rank: null
+                      coverageLabel: Moderate Payer Coverage
+                      coverage: 50
+                    - id: 214
+                      dmeName: DEF Medical Supplies
+                      dmeUrl: https://abcmedicalsupplies.com
+                      isExcluded: false
+                      isNew: false
+                      rank: null
+                      coverageLabel: Moderate Payer Coverage
+                      coverage: 50
+                    - id: 215
+                      dmeName: GHI Medical Supplies
+                      dmeUrl: https://abcmedicalsupplies.com
+                      isExcluded: false
+                      isNew: false
+                      rank: null
+                      coverageLabel: Moderate Payer Coverage
+                      coverage: 50
 
 components:
   securitySchemes:

@@ -438,6 +438,76 @@ app.delete(`${API_BASE}/admin/clear`, (req, res) => {
     });
 });
 
+// GET - HHA Management Data
+app.get(`${API_BASE}/hha-management/get-data`, (req, res) => {
+    res.json({
+        "routingAndBehavior": {
+            "rejectedOrderAction": "CONVERT_TO_STANDARD_AND_INVOICE",
+            "orderCanceledNotifications": true
+        },
+        "dmeSupplierPreferences": {
+            "setPreferencesEnabled": true,
+            "coverageBanner": {
+                "state": "CA",
+                "payerNames": [],
+                "planTypes": []
+            },
+            "dmeSupplierList": [
+                {
+                    "id": 155,
+                    "dmeName": "Zest Health",
+                    "dmeUrl": "https://adapthealth.com",
+                    "isExcluded": true,
+                    "isNew": true,
+                    "rank": 1,
+                    "coverageLabel": "High Payer Coverage",
+                    "coverage": 80
+                },
+                {
+                    "id": 212,
+                    "dmeName": "ABC Medical Supplies",
+                    "dmeUrl": "https://abcmedicalsupplies.com",
+                    "isExcluded": false,
+                    "isNew": false,
+                    "rank": 2,
+                    "coverageLabel": "Moderate Payer Coverage",
+                    "coverage": 50
+                },
+                {
+                    "id": 213,
+                    "dmeName": "ABC Medical Supplies",
+                    "dmeUrl": "https://abcmedicalsupplies.com",
+                    "isExcluded": false,
+                    "isNew": false,
+                    "rank": null,
+                    "coverageLabel": "Moderate Payer Coverage",
+                    "coverage": 50
+                },
+                {
+                    "id": 214,
+                    "dmeName": "DEF Medical Supplies",
+                    "dmeUrl": "https://abcmedicalsupplies.com",
+                    "isExcluded": false,
+                    "isNew": false,
+                    "rank": null,
+                    "coverageLabel": "Moderate Payer Coverage",
+                    "coverage": 50
+                },
+                {
+                    "id": 215,
+                    "dmeName": "GHI Medical Supplies",
+                    "dmeUrl": "https://abcmedicalsupplies.com",
+                    "isExcluded": false,
+                    "isNew": false,
+                    "rank": null,
+                    "coverageLabel": "Moderate Payer Coverage",
+                    "coverage": 50
+                }
+            ]
+        }
+    });
+});
+
 // POST - Generate mock patients
 app.post(`${API_BASE}/admin/generate`, (req, res) => {
     const count = parseInt(req.body.count) || 10;
