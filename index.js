@@ -121,6 +121,14 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+app.get('/games/breakout', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'breakout-game.html'));
+});
+
+app.get('/games/tic-tac-toe', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'tic-tac-toe-game.html'));
+});
+
 // ------------------- API BASE -------------------
 const API_BASE = '/api';
 
@@ -516,12 +524,14 @@ app.get(`${API_BASE}/hha-management/get-data`, (req, res) => {
 });
 
 const defaultPreferences = {
+    "id": 1,
     "routingAndBehavior": {
         "rejectedOrderAction": "CONVERT_TO_STANDARD_AND_INVOICE",
         "orderCanceledNotifications": false
     },
     "dmeSupplierPreferences": {
         "setPreferencesEnabled": false,
+        "preferredDmeAggregateCoverage": 0,
         "coverageBanner": {
             "state": "CA",
             "payerNames": [],
@@ -533,12 +543,14 @@ const defaultPreferences = {
 };
 
 const fullGeneratedPreferences = {
+    "id": 1,
     "routingAndBehavior": {
         "rejectedOrderAction": "CONVERT_TO_STANDARD_AND_INVOICE",
         "orderCanceledNotifications": true
     },
     "dmeSupplierPreferences": {
         "setPreferencesEnabled": true,
+        "preferredDmeAggregateCoverage": 83,
         "coverageBanner": {
             "state": "CA",
             "payerNames": [
@@ -555,7 +567,8 @@ const fullGeneratedPreferences = {
         },
         "preferredDmeSupplierList": [
             {
-                "id": 155,
+                "id": 1,
+                "dmeId": 155,
                 "dmeName": "Zest Health",
                 "dmeUrl": "https://adapthealth.com",
                 "isExcluded": true,
@@ -565,7 +578,8 @@ const fullGeneratedPreferences = {
                 "coverage": 80
             },
             {
-                "id": 212,
+                "id": 2,
+                "dmeId": 212,
                 "dmeName": "ABC Medical Supplies",
                 "dmeUrl": "https://abcmedicalsupplies.com",
                 "isExcluded": false,
@@ -577,7 +591,8 @@ const fullGeneratedPreferences = {
         ],
         "nonPreferredDmeSupplierList": [
             {
-                "id": 213,
+                "id": 3,
+                "dmeId": 213,
                 "dmeName": "ABC Medical Supplies",
                 "dmeUrl": "https://abcmedicalsupplies.com",
                 "isExcluded": false,
@@ -587,7 +602,8 @@ const fullGeneratedPreferences = {
                 "coverage": 50
             },
             {
-                "id": 214,
+                "id": 4,
+                "dmeId": 214,
                 "dmeName": "DEF Medical Supplies",
                 "dmeUrl": "https://abcmedicalsupplies.com",
                 "isExcluded": false,
@@ -661,14 +677,14 @@ app.put(`${API_BASE}/preferences`, (req, res) => {
 
             if (payload.dmeSupplierPreferences.preferredDmeSupplierList) {
                 currentPrefs.dmeSupplierPreferences.preferredDmeSupplierList = payload.dmeSupplierPreferences.preferredDmeSupplierList.map(incoming => {
-                    const existing = allSuppliers.find(s => s.id === incoming.id) || {};
+                    const existing = allSuppliers.find(s => s.dmeId === incoming.dmeId) || {};
                     return { ...existing, ...incoming };
                 });
             }
 
             if (payload.dmeSupplierPreferences.nonPreferredDmeSupplierList) {
                 currentPrefs.dmeSupplierPreferences.nonPreferredDmeSupplierList = payload.dmeSupplierPreferences.nonPreferredDmeSupplierList.map(incoming => {
-                    const existing = allSuppliers.find(s => s.id === incoming.id) || {};
+                    const existing = allSuppliers.find(s => s.dmeId === incoming.dmeId) || {};
                     return { ...existing, ...incoming };
                 });
             }
@@ -681,7 +697,10 @@ app.put(`${API_BASE}/preferences`, (req, res) => {
             [soldToId, jsonStr],
             function (upsertErr) {
                 if (upsertErr) return handleError(res, 500, upsertErr.message || 'DB error');
-                res.json(payload);
+                res.json({
+                    code: 200,
+                    message: "HHA order preferences have been successfully created or updated."
+                });
             });
     };
 

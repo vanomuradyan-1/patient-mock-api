@@ -183,6 +183,82 @@
         .links a:hover {
             color: #764ba2;
         }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+        .section { background: #f8f9fa; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+        .section h2 { color: #444; font-size: 18px; margin-bottom: 12px; }
+        .section p { color: #666; font-size: 14px; margin-bottom: 16px; line-height: 1.5; }
+        .input-group { margin-bottom: 16px; }
+        label { display: block; color: #555; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+        input[type="number"], input[type="text"] { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; transition: border-color 0.3s; }
+        input:focus { outline: none; border-color: #667eea; }
+        button { width: 100%; padding: 14px 24px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-danger { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .message { padding: 12px 16px; border-radius: 8px; margin-top: 16px; font-size: 14px; display: none; }
+        .message.show { display: block; animation: slideIn 0.3s ease; }
+        .links { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0; text-align: center; }
+        .links a { color: #667eea; text-decoration: none; font-weight: 600; margin: 0 12px; transition: color 0.3s; cursor: pointer; }
+
+        /* --- MODAL STYLES --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+        .game-grid {
+            display: grid;
+            gap: 15px;
+            margin: 25px 0;
+        }
+        .game-card {
+            padding: 20px;
+            background: #f0f4ff;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+            transition: transform 0.2s, background 0.2s;
+            border: 2px solid transparent;
+        }
+        .game-card:hover {
+            transform: translateY(-3px);
+            background: #e0e7ff;
+            border-color: #667eea;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 
@@ -239,10 +315,26 @@
         <div class="links">
             <a href="/api-docs">📖 API Docs</a>
             <a href="/api/patients">📊 View Patients</a>
+            <a onclick="openModal()">🧘 Take a rest</a>
+        </div>
+    </div>
+
+    <div id="gameModal" class="modal-overlay" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>🎮 Break Time</h2>
+            <p>Pick a game to recharge your brain</p>
+            <div class="game-grid">
+                <a href="/games/breakout" class="game-card">🧱 Breakout</a>
+                <a href="/games/tic-tac-toe" class="game-card">❌ Tic-Tac-Toe</a>
+            </div>
+            <button onclick="closeModal()" style="background: none; color: #888; text-transform: none; padding: 0;">Close</button>
         </div>
     </div>
 
     <script>
+        function openModal() { document.getElementById('gameModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('gameModal').style.display = 'none'; }
+
         function showMessage(elementId, message, isSuccess) {
             const el = document.getElementById(elementId);
             el.textContent = message;

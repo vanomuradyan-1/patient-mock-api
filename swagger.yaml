@@ -675,116 +675,163 @@ paths:
 
   /preferences:
     get:
-      summary: Get preferences
-      tags: ["HHA management"]
-      operationId: getPreferences
+      summary: Get HHA order preferences and DME supplier list
+      description: Get HHA order preferences and DME supplier list
+      operationId: getHhOrderPreferences
+      tags:
+        - Preferences
       parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+        - $ref: '#/components/parameters/CurrentOrgIdHeader'
+        - $ref: '#/components/parameters/SelectedSoldToHeader'
+        - $ref: '#/components/parameters/SelectedShipToHeader'
         - name: soldToId
           in: query
           required: true
+          description: The Sold To ID for the HHA.
           schema:
             type: string
+            example: "12345678"
             default: "12345678"
         - name: state
           in: query
-          required: false
+          required: true
+          description: The US state code used to filter payer coverage data for the DME supplier list.
           schema:
             type: string
+            example: "CA"
       responses:
         '200':
-          description: Successful response
+          description: Successful retrieval of preferences and supplier list.
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/HhOrderPreferencesResponse'
               example:
+                id: 1
                 routingAndBehavior:
                   rejectedOrderAction: CONVERT_TO_STANDARD_AND_INVOICE
                   orderCanceledNotifications: true
                 dmeSupplierPreferences:
                   setPreferencesEnabled: true
+                  preferredDmeAggregateCoverage: 83
                   coverageBanner:
-                    state: CA
-                    payerNames: ["Aetna", "United Health Care", "Payer Name 1", "Payer Name 2", "Payer Name 3"]
-                    planTypes: ["Medical Advantage", "Medicaid"]
+                    state: "CA"
+                    payerNames: [ ]
+                    planTypes: [ ]
                   preferredDmeSupplierList:
-                    - id: 155
-                      dmeName: Zest Health
-                      dmeUrl: https://adapthealth.com
+                    - id: 1
+                      dmeId: 155
+                      dmeName: "Zest Health"
+                      dmeUrl: "https://adapthealth.com"
                       isExcluded: true
                       isNew: true
                       rank: 1
-                      coverageLabel: High Payer Coverage
+                      coverageLabel: "High Payer Coverage"
                       coverage: 80
-                    - id: 212
-                      dmeName: ABC Medical Supplies
-                      dmeUrl: https://abcmedicalsupplies.com
+                    - id: 2
+                      dmeId: 212
+                      dmeName: "ABC Medical Supplies"
+                      dmeUrl: "https://abcmedicalsupplies.com"
                       isExcluded: false
                       isNew: false
                       rank: 2
-                      coverageLabel: Moderate Payer Coverage
+                      coverageLabel: "Moderate Payer Coverage"
                       coverage: 50
                   nonPreferredDmeSupplierList:
-                    - id: 213
-                      dmeName: ABC Medical Supplies
-                      dmeUrl: https://abcmedicalsupplies.com
+                    - id: 3
+                      dmeId: 213
+                      dmeName: "DEF Medical Supplies"
+                      dmeUrl: "https://defmedicalsupplies.com"
                       isExcluded: false
                       isNew: false
                       rank: null
-                      coverageLabel: Moderate Payer Coverage
+                      coverageLabel: "Moderate Payer Coverage"
                       coverage: 50
-                    - id: 214
-                      dmeName: DEF Medical Supplies
-                      dmeUrl: https://abcmedicalsupplies.com
-                      isExcluded: false
-                      isNew: false
-                      rank: null
-                      coverageLabel: Moderate Payer Coverage
-                      coverage: 50
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - jwtTokenAuth: []
+
     put:
-      summary: Update preferences
-      tags: ["HHA management"]
-      operationId: updatePreferences
+      summary: Create or update HHA order preferences
+      description: Idempotent create or update of HHA order preferences including routing behavior and DME supplier rankings for the given organization.
+      operationId: SetHhOrderPreferences
+      tags:
+        - Preferences
       parameters:
+        - $ref: '#/components/parameters/AuthorizationHeader'
+        - $ref: '#/components/parameters/CurrentOrgIdHeader'
+        - $ref: '#/components/parameters/SelectedSoldToHeader'
+        - $ref: '#/components/parameters/SelectedShipToHeader'
         - name: soldToId
           in: query
           required: true
+          description: The Sold To ID for the HHA.
           schema:
             type: string
+            example: "12345678"
             default: "12345678"
       requestBody:
         required: true
+        description: Payload for Set HHA order preferences.
         content:
           application/json:
             schema:
-              type: object
+              $ref: '#/components/schemas/SetHhOrderPreferencesRequest'
             example:
+              id: 1
               routingAndBehavior:
-                rejectedOrderAction: CONVERT_TO_STANDARD_AND_INVOICE
+                rejectedOrderAction: "CONVERT_TO_STANDARD_AND_INVOICE"
                 orderCanceledNotifications: true
               dmeSupplierPreferences:
                 setPreferencesEnabled: true
                 preferredDmeSupplierList:
-                  - id: 155
+                  - id: 1
+                    dmeId: 155
                     isExcluded: true
                     rank: 1
-                  - id: 212
+                  - id: 2
+                    dmeId: 212
                     isExcluded: false
                     rank: 2
                 nonPreferredDmeSupplierList:
-                  - id: 213
+                  - id: 3
+                    dmeId: 213
                     isExcluded: false
                     rank: null
-                  - id: 214
+                  - id: null
+                    dmeId: 214
                     isExcluded: false
                     rank: null
       responses:
         '200':
-          description: Successful response
+          description: Preferences successfully created or updated.
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/SetHhOrderPreferencesResponse'
+              examples:
+                Success:
+                  value:
+                    code: 200
+                    message: HHA order preferences have been successfully created or updated.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - jwtTokenAuth: []
 
 components:
   securitySchemes:
@@ -1124,6 +1171,319 @@ components:
       required:
         - message
         - fileName
+
+    HhOrderPreferencesResponse:
+      type: object
+      required:
+        - id
+        - routingAndBehavior
+        - dmeSupplierPreferences
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Primary key of the hh_order_preferences record.
+          example: 1
+        routingAndBehavior:
+          $ref: '#/components/schemas/RoutingAndBehavior'
+        dmeSupplierPreferences:
+          $ref: '#/components/schemas/DmeSupplierPreferences'
+
+    RoutingAndBehavior:
+      type: object
+      required:
+        - rejectedOrderAction
+        - orderCanceledNotifications
+      properties:
+        rejectedOrderAction:
+          type: string
+          enum: [ CONVERT_TO_STANDARD_AND_INVOICE, CANCEL_ORDER ]
+          description: Defines if rejected insurance orders convert to invoices or cancel.
+        orderCanceledNotifications:
+          type: boolean
+          description: Controls  notification  for canceled orders.
+
+    DmeSupplierPreferences:
+      type: object
+      required:
+        - setPreferencesEnabled
+        - preferredDmeSupplierList
+        - nonPreferredDmeSupplierList
+      properties:
+        setPreferencesEnabled:
+          type: boolean
+          description: Toggle for using the force-ranked priority list.
+        preferredDmeAggregateCoverage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: >
+            Aggregate payer coverage percentage across all preferred DME suppliers
+            for the requested state. Read-only, computed server-side.
+          example: 83
+        coverageBanner:
+          $ref: '#/components/schemas/CoverageBanner'
+        preferredDmeSupplierList:
+          type: array
+          description: >
+            DME suppliers that have been explicitly ranked by the HHA.
+            Each entry carries a non-null rank and reflects the HHA's
+            force-ranked priority order.
+          items:
+            $ref: '#/components/schemas/DmeSupplier'
+        nonPreferredDmeSupplierList:
+          type: array
+          description: >
+            DME suppliers available in the network but not yet ranked
+            by the HHA. These suppliers have a null rank.
+          items:
+            $ref: '#/components/schemas/DmeSupplier'
+
+    DmeSupplier:
+      type: object
+      required:
+        - id
+        - dmeId
+        - dmeName
+        - isExcluded
+        - isNew
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Primary key of the hh_order_preference_dme_supplier table row.
+          example: 1
+        dmeId:
+          type: integer
+          format: int64
+          description: Unique identifier of the DME vendor.
+          example: 155
+        dmeName:
+          type: string
+          example: "Adapt Health"
+        dmeUrl:
+          type: string
+          format: uri
+          example: "https://adapthealth.com"
+        isExcluded:
+          type: boolean
+          description: Whether the HHA has manually excluded this supplier.
+        isNew:
+          type: boolean
+          description: Flag if the supplier joined within the last 90 days.
+        rank:
+          type: integer
+          minimum: 1
+          description: The force-rank position if preferences are enabled.
+        coverageLabel:
+          type: string
+          description: Human-readable label for the payer coverage tier (e.g. "High Payer Coverage").
+          example: "High Payer Coverage"
+        coverage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Numeric payer coverage percentage for the supplier in the requested state.
+          example: 80
+          
+    CoverageBanner:
+      type: object
+      description: >
+        Payer coverage banner data scoped to a US state.
+        Populated when a state filter is provided in the GET request.
+      properties:
+        state:
+          type: string
+          description: The US state code used to scope the coverage data.
+          example: "CA"
+        payerNames:
+          type: array
+          description: List of payer names with active coverage in the given state.
+          items:
+            type: string
+        planTypes:
+          type: array
+          description: List of plan types with active coverage in the given state.
+          items:
+            type: string
+
+    SetHhOrderPreferencesResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "HHA order preferences have been successfully created or updated."
+
+    SetHhOrderPreferencesRequest:
+      type: object
+      description: Request payload for creating or updating HHA order preferences.
+      required:
+        - routingAndBehavior
+        - dmeSupplierPreferences
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Primary key of the existing hh_order_preferences record. Null on first-time creation; must be provided on subsequent updates.
+          example: 1
+        routingAndBehavior:
+          $ref: '#/components/schemas/RoutingAndBehaviorRequest'
+        dmeSupplierPreferences:
+          $ref: '#/components/schemas/DmeSupplierPreferencesRequest'
+
+    RoutingAndBehaviorRequest:
+      type: object
+      description: Model for routing and behavior settings. All fields are optional.
+      required:
+        - rejectedOrderAction
+        - orderCanceledNotifications
+      properties:
+        rejectedOrderAction:
+          type: string
+          enum: [ CONVERT_TO_STANDARD_AND_INVOICE, CANCEL_ORDER ]
+          default: CONVERT_TO_STANDARD_AND_INVOICE
+          description: Defines if rejected insurance orders convert to invoices or cancel.
+        orderCanceledNotifications:
+          type: boolean
+          default: false
+          description: Controls notification for canceled orders.
+
+    DmeSupplierPreferencesRequest:
+      type: object
+      description: Model for DME supplier preferences. All fields are optional.
+      required:
+        - setPreferencesEnabled
+        - preferredDmeSupplierList
+        - nonPreferredDmeSupplierList
+      properties:
+        setPreferencesEnabled:
+          type: boolean
+          default: false
+          description: Toggle for using the force-ranked priority list.
+        preferredDmeSupplierList:
+          type: array
+          minItems: 0
+          description: DME suppliers that are explicitly ranked by the HHA. Each entry must carry a non-null rank when setPreferencesEnabled is true.
+          items:
+            $ref: '#/components/schemas/DmeSupplierRequest'
+        nonPreferredDmeSupplierList:
+          type: array
+          minItems: 0
+          description: DME suppliers available in the network but not ranked by the HHA. These entries must have a null rank.
+          items:
+            $ref: '#/components/schemas/DmeSupplierRequest'
+
+    DmeSupplierRequest:
+      type: object
+      description: Write model for a single DME supplier preference entry. All fields are optional. Server-managed read-only fields (isNew) must not be sent. id is the PK of hh_order_preference_dme_supplier — null triggers INSERT, non-null triggers UPDATE.
+      required:
+        - dmeId
+        - isExcluded
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Primary key of the hh_order_preference_dme_supplier row. Omit or set null on first-time creation; provide on subsequent updates.
+          example: 1
+        dmeId:
+          type: integer
+          format: int64
+          description: Unique identifier of the DME vendor.
+          example: 155
+        isExcluded:
+          type: boolean
+          default: false
+          description: Set to true to exclude this supplier for the HHA.
+        rank:
+          type: integer
+          minimum: 1
+          description: Force-rank position (1-based). Must be unique across the supplier list when setPreferencesEnabled is true.
+
+  parameters:
+    AuthorizationHeader:
+      name: Authorization
+      in: header
+      description: It is a pass-through header containing JWT token.
+      schema:
+        type: string
+        example: "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9"
+      required: true
+    CurrentOrgIdHeader:
+      name: Current-Org-Id
+      in: header
+      description: Current organization identifier for the user context
+      schema:
+        type: string
+        example: "ORG-12345"
+      required: false
+    SelectedSoldToHeader:
+      name: Selected-Sold-To
+      in: header
+      description: Selected sold-to account identifier
+      schema:
+        type: string
+        example: "SOLD-67890"
+      required: false
+    SelectedShipToHeader:
+      name: Selected-Ship-To
+      in: header
+      description: Selected ship-to account identifier
+      schema:
+        type: string
+        example: "SHIP-54321"
+      required: false
+      
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            MissingParameter:
+              value:
+                code: 400
+                message: Bad Request. Required parameter is missing.
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            InvalidToken:
+              value:
+                code: 401
+                message: Unauthorized. Invalid or expired token.
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            AccessDenied:
+              value:
+                code: 403
+                message: Forbidden
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            ServerError:
+              value:
+                code: 500
+                message: Internal Server Error occurred.
 
 security:
   - PingTokenAuth: []
