@@ -12,7 +12,7 @@ const PORT = 5178;
 
 // middleware
 app.use(express.json());
-app.use(cors('*'));
+app.use(cors({ origin: 'http://localhost:3001', credentials: true }));
 app.use(express.static('public'));
 
 // method-override support for clients that can't send PATCH/PUT/DELETE
@@ -93,6 +93,13 @@ db.run(`
   CREATE TABLE IF NOT EXISTS preferences (
     soldToId TEXT PRIMARY KEY,
     data TEXT NOT NULL
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS auth_privileges (
+    id TEXT PRIMARY KEY,
+    privileges TEXT NOT NULL
   )
 `);
 
@@ -260,165 +267,178 @@ app.get(`${API_BASE}/apic/ecom/account/v1/shipto/:id`, (req, res) => {
     });
 });
 
+const DEFAULT_PRIVILEGES = [
+    "ViewItemFormularyFlag",
+    "EditPatient",
+    "CustomerSelfAdminView",
+    "DisplayShipmentNotification",
+    "viewBackOrderedItems",
+    "CreateOrder",
+    "ViewNonFormularyItemsInCatalog",
+    "ViewItemPrice",
+    "WarnDefaultItemPricingView",
+    "BudgetAdmin",
+    "EnablePPDDesignation",
+    "addOSIPriceIssue",
+    "addOSIDamage",
+    "ViewItemAvailability",
+    "addOSIWrongItem",
+    "MaintainOrgDropShips",
+    "CreateReturn",
+    "ApplyDropShipToOrder",
+    "cfaSupplyChain",
+    "MaintainFormularyGlobal",
+    "trackPointPatientCharges",
+    "addAdvancedSearch",
+    "ViewPatient",
+    "EditClinician",
+    "searchOSIMedline",
+    "addEmbroidery",
+    "MaintainReverseFormularyGlobal",
+    "addOSIShortage",
+    "AllowRushFreight",
+    "addItemConversion",
+    "NavigateToInsight",
+    "ViewAllCliniciansByAccount",
+    "ViewProductAlternates",
+    "ViewItemContractPriceFlag",
+    "NavigateToFRAT",
+    "cfaHomecareGeneral",
+    "addOSIMedline",
+    "CreateAnotherClinicianOrder",
+    "ManageRecurringOrders",
+    "DisplayDownloadFormularyLink",
+    "ManagePiggyBackLabels",
+    "viewItemProductDetailTable",
+    "CreateConsignment",
+    "NavigateToCFA",
+    "DownloadPatient",
+    "SubmitOrder",
+    "addProdAllocationExport",
+    "ManageCustomerDrivenRerouteRequest",
+    "ViewGLCodes",
+    "addProdAllocationList",
+    "ViewRecurringOrders",
+    "viewOrderFreightStatus",
+    "ViewOrders",
+    "MaintainOrgTemplates",
+    "MaintainGLCodeGlobal",
+    "UploadPatient",
+    "ViewInvoices",
+    "NavigateToParscan",
+    "FileUpload",
+    "ViewCmir",
+    "trackPointEnabled",
+    "MaintainCmir",
+    "ViewPPDBudget",
+    "ManageNotificationPreference",
+    "trackPointInventoryManagement",
+    "CustomerSelfAdminRule",
+    "ViewClinician",
+    "CustomerSelfAdminEdit",
+    "ViewItemAllocationStatus",
+    "NavigationToXRefSearch",
+    "AccessOrdersCreatedByUser",
+    "ViewReturns",
+    "AccessOrdersByAccountAccess",
+    "EditOrderPO",
+    "ManageSharedTemplate",
+    "BillPayView",
+    "addOSIOverage",
+    "InvoiceVerifier",
+    "MaintainFormularyByAccount",
+    "ViewMaskedData",
+    "ManageEmbroideryDigitizationRequest",
+    "HH_EDPO",
+    "RS_ENLD",
+    "BD_MNGE",
+    "FM_ACCTGRP",
+    "FR_ENLD",
+    "BO_STAND",
+    "SA_STAND",
+    "BP_MNGE",
+    "FT_ENLD",
+    "DS_MORD",
+    "IA_CUSD",
+    "UM_ORULE",
+    "OH_SHIC",
+    "SL_SHARE",
+    "IC_ENLD",
+    "UP_STAND",
+    "OL_DUIC",
+    "CA_ENLD",
+    "CD_STAND",
+    "IL_FULL",
+    "GL_ACCTGRP",
+    "EL_MNGE",
+    "IS_ENLD",
+    "CM_STAND",
+    "CO_ENLD",
+    "IV_VERIF",
+    "CR_MNGE",
+    "CS_STAND",
+    "RD_MNGE",
+    "PC_ENLD",
+    "TP_STAND",
+    "PL_ENLD",
+    "PM_STAND",
+    "RO_STAND",
+    "DA_CUST"
+];
+
 // GET - User Context Details
 app.get(`${API_BASE}/apic/ecom/user/usercontext/v2/details`, (req, res) => {
-    res.json({
-        "details": {
-            "id": "11369805630",
-            "username": "AUTO_HH_RW",
-            "accountLinkedFilterEnabled": true,
-            "lastName": "User 01",
-            "orderOptions": {
-                "reference1Enabled": true,
-                "reference2Enabled": true,
-                "defaultShipTo": "Branch",
-                "defaultPackagedFor": "Branch"
+    db.get("SELECT privileges FROM auth_privileges WHERE id = 'global'", [], (err, row) => {
+        let currentPrivileges = DEFAULT_PRIVILEGES;
+        if (!err && row && row.privileges) {
+            try {
+                currentPrivileges = JSON.parse(row.privileges);
+            } catch (e) {
+                console.error("Failed to parse privileges from DB", e);
+            }
+        }
+
+        res.json({
+            "details": {
+                "id": "11369805630",
+                "username": "AUTO_HH_RW",
+                "accountLinkedFilterEnabled": true,
+                "lastName": "User 01",
+                "orderOptions": {
+                    "reference1Enabled": true,
+                    "reference2Enabled": true,
+                    "defaultShipTo": "Branch",
+                    "defaultPackagedFor": "Branch"
+                },
+                "numberOfFacilities": 19329,
+                "maxAllowedCreditCards": 10,
+                "activeFacilityName": "NORTHWEST MEDICAL CENTER-AZ",
+                "firstName": "Test HomeHealth 1",
+                "emailAddress": "kgovlxwd@medline.com",
+                "formularyFilterSettings": {
+                    "checkedByDefault": false,
+                    "enabled": true
+                },
+                "invoiceOrdering": "Permitted",
+                "daysToSearchForRecentOrders": "1",
+                "mobileTermsOfUse": true,
+                "creditCardOrdering": "Permitted",
+                "contactPhoneNumber": "999-866-6945",
+                "sessionTimeout": 30,
+                "userType": "STANDARD",
+                "internalAuthentication": false
             },
-            "numberOfFacilities": 19329,
-            "maxAllowedCreditCards": 10,
-            "activeFacilityName": "NORTHWEST MEDICAL CENTER-AZ",
-            "firstName": "Test HomeHealth 1",
-            "emailAddress": "kgovlxwd@medline.com",
-            "formularyFilterSettings": {
-                "checkedByDefault": false,
-                "enabled": true
+            "organization": {
+                "id": "245673",
+                "name": "Internal Testing - Home Health",
+                "orgVisibilities": [
+                    "CSAEnabled",
+                    "externalOrdering",
+                    "simulation"
+                ]
             },
-            "invoiceOrdering": "Permitted",
-            "daysToSearchForRecentOrders": "1",
-            "mobileTermsOfUse": true,
-            "creditCardOrdering": "Permitted",
-            "contactPhoneNumber": "999-866-6945",
-            "sessionTimeout": 30,
-            "userType": "STANDARD",
-            "internalAuthentication": false
-        },
-        "organization": {
-            "id": "245673",
-            "name": "Internal Testing - Home Health",
-            "orgVisibilities": [
-                "CSAEnabled",
-                "externalOrdering",
-                "simulation"
-            ]
-        },
-        "privileges": [
-            "ViewItemFormularyFlag",
-            "EditPatient",
-            "CustomerSelfAdminView",
-            "DisplayShipmentNotification",
-            "viewBackOrderedItems",
-            "CreateOrder",
-            "ViewNonFormularyItemsInCatalog",
-            "ViewItemPrice",
-            "WarnDefaultItemPricingView",
-            "BudgetAdmin",
-            "EnablePPDDesignation",
-            "addOSIPriceIssue",
-            "addOSIDamage",
-            "ViewItemAvailability",
-            "addOSIWrongItem",
-            "MaintainOrgDropShips",
-            "CreateReturn",
-            "ApplyDropShipToOrder",
-            "cfaSupplyChain",
-            "MaintainFormularyGlobal",
-            "trackPointPatientCharges",
-            "addAdvancedSearch",
-            "ViewPatient",
-            "EditClinician",
-            "searchOSIMedline",
-            "addEmbroidery",
-            "MaintainReverseFormularyGlobal",
-            "addOSIShortage",
-            "AllowRushFreight",
-            "addItemConversion",
-            "NavigateToInsight",
-            "ViewAllCliniciansByAccount",
-            "ViewProductAlternates",
-            "ViewItemContractPriceFlag",
-            "NavigateToFRAT",
-            "cfaHomecareGeneral",
-            "addOSIMedline",
-            "CreateAnotherClinicianOrder",
-            "ManageRecurringOrders",
-            "DisplayDownloadFormularyLink",
-            "ManagePiggyBackLabels",
-            "viewItemProductDetailTable",
-            "CreateConsignment",
-            "NavigateToCFA",
-            "DownloadPatient",
-            "SubmitOrder",
-            "addProdAllocationExport",
-            "ManageCustomerDrivenRerouteRequest",
-            "ViewGLCodes",
-            "addProdAllocationList",
-            "ViewRecurringOrders",
-            "viewOrderFreightStatus",
-            "ViewOrders",
-            "MaintainOrgTemplates",
-            "MaintainGLCodeGlobal",
-            "UploadPatient",
-            "ViewInvoices",
-            "NavigateToParscan",
-            "FileUpload",
-            "ViewCmir",
-            "trackPointEnabled",
-            "MaintainCmir",
-            "ViewPPDBudget",
-            "ManageNotificationPreference",
-            "trackPointInventoryManagement",
-            "CustomerSelfAdminRule",
-            "ViewClinician",
-            "CustomerSelfAdminEdit",
-            "ViewItemAllocationStatus",
-            "NavigationToXRefSearch",
-            "AccessOrdersCreatedByUser",
-            "ViewReturns",
-            "AccessOrdersByAccountAccess",
-            "EditOrderPO",
-            "ManageSharedTemplate",
-            "BillPayView",
-            "addOSIOverage",
-            "InvoiceVerifier",
-            "MaintainFormularyByAccount",
-            "ViewMaskedData",
-            "ManageEmbroideryDigitizationRequest",
-            "HH_EDPO",
-            "RS_ENLD",
-            "BD_MNGE",
-            "FM_ACCTGRP",
-            "FR_ENLD",
-            "BO_STAND",
-            "SA_STAND",
-            "BP_MNGE",
-            "FT_ENLD",
-            "DS_MORD",
-            "IA_CUSD",
-            "UM_ORULE",
-            "OH_SHIC",
-            "SL_SHARE",
-            "IC_ENLD",
-            "UP_STAND",
-            "OL_DUIC",
-            "CA_ENLD",
-            "CD_STAND",
-            "IL_FULL",
-            "GL_ACCTGRP",
-            "EL_MNGE",
-            "IS_ENLD",
-            "CM_STAND",
-            "CO_ENLD",
-            "IV_VERIF",
-            "CR_MNGE",
-            "CS_STAND",
-            "RD_MNGE",
-            "PC_ENLD",
-            "TP_STAND",
-            "PL_ENLD",
-            "PM_STAND",
-            "RO_STAND",
-            "DA_CUST"
-        ]
+            "privileges": currentPrivileges
+        });
     });
 });
 
@@ -758,6 +778,48 @@ app.post(`${API_BASE}/admin/reset-hha`, (req, res) => {
         });
 });
 
+// GET - Admin Auth Privileges
+app.get(`${API_BASE}/admin/privileges`, (req, res) => {
+    db.get("SELECT privileges FROM auth_privileges WHERE id = 'global'", [], (err, row) => {
+        if (err) return handleError(res, 500, err.message || 'DB error');
+
+        let selectedPrivileges = DEFAULT_PRIVILEGES;
+        if (row && row.privileges) {
+            try {
+                selectedPrivileges = JSON.parse(row.privileges);
+            } catch (e) {
+                console.error("Failed to parse privileges from DB", e);
+            }
+        }
+
+        res.json({
+            allPrivileges: DEFAULT_PRIVILEGES,
+            selectedPrivileges: selectedPrivileges
+        });
+    });
+});
+
+// POST - Admin Auth Privileges
+app.post(`${API_BASE}/admin/privileges`, (req, res) => {
+    const { privileges } = req.body;
+    if (!Array.isArray(privileges)) {
+        return handleError(res, 400, "privileges must be an array");
+    }
+
+    const privilegesJson = JSON.stringify(privileges);
+    db.run(
+        "INSERT INTO auth_privileges (id, privileges) VALUES ('global', ?) ON CONFLICT(id) DO UPDATE SET privileges = ?",
+        [privilegesJson, privilegesJson],
+        function (err) {
+            if (err) return handleError(res, 500, err.message || 'DB error');
+            res.json({
+                success: true,
+                message: "Privileges updated successfully"
+            });
+        }
+    );
+});
+
 // POST - Generate mock patients
 app.post(`${API_BASE}/admin/generate`, (req, res) => {
     const count = parseInt(req.body.count) || 10;
@@ -887,6 +949,22 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // GET /api/patients/:shipToId (Search)
 app.get(`${API_BASE}/patients/:shipToId`, async (req, res) => {
+    const currentPrivileges = await new Promise((resolve) => {
+        db.get("SELECT privileges FROM auth_privileges WHERE id = 'global'", [], (err, row) => {
+            if (!err && row && row.privileges) {
+                try {
+                    resolve(JSON.parse(row.privileges));
+                    return;
+                } catch (e) { }
+            }
+            resolve(DEFAULT_PRIVILEGES);
+        });
+    });
+
+    if (!currentPrivileges.includes('ViewPatient')) {
+        return handleError(res, 403, "Forbidden: Missing ViewPatient privilege", "FORBIDDEN");
+    }
+
     await sleep(2000);
     const shipToId = req.params.shipToId;
     if (!shipToId) return handleError(res, 400, 'shipToId is required');
